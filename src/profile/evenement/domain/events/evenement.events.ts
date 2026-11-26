@@ -1,8 +1,18 @@
 export const EVENEMENT_EVENTS = {
     DATE_UPDATED: 'evenement.date.updated',
     DELETION_WARNING: 'evenement.deletion.warning',
-    CANCELLED: 'evenement.cancelled'
+    CANCELLED: 'evenement.cancelled',
+    REMINDER_DUE: 'evenement.reminder.due'
 } as const;
+
+export interface EvenementReminderEvent {
+    evenementId: number;
+    date: string;
+    location: string;
+    description: string;
+    organizerName: string | null;
+    participantEmails: string[];
+}
 
 export interface EvenementCancelledEvent {
     evenementId: number;

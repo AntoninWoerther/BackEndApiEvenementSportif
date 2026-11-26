@@ -7,14 +7,17 @@ import { makeCreateEvenementUseCase } from './profile/evenement/app/usecases/cre
 import { makeDeleteEvenementUseCase } from './profile/evenement/app/usecases/delete-evenement.usecase';
 import { makeGetEvenementByIdUseCase } from './profile/evenement/app/usecases/get-evenement-by-id.usecase';
 import { makeGetEvenementsUseCase } from './profile/evenement/app/usecases/get-evenements.usecase';
+import { makeSendEvenementRemindersUseCase } from './profile/evenement/app/usecases/send-evenement-reminders.usecase';
 import { makeUpdateEvenementDateUseCase } from './profile/evenement/app/usecases/update-evenement-date.usecase';
 import { makeUpdateEvenementDetailsUseCase } from './profile/evenement/app/usecases/update-evenement-details.usecase';
 import { typeormEvenementCleanupGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement-cleanup.gateway';
+import { typeormEvenementReminderGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement-reminder.gateway';
 import { typeormEvenementGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway';
 import { startEvenementCleanupScheduler } from './profile/evenement/infra/scheduling/evenement-cleanup.scheduler';
 import { registerEvenementCancellationEmailListener } from './profile/evenement/infra/mailer/evenement-cancellation-email.listener';
 import { registerEvenementDateEmailListener } from './profile/evenement/infra/mailer/evenement-date-email.listener';
 import { registerEvenementDeletionWarningEmailListener } from './profile/evenement/infra/mailer/evenement-deletion-warning-email.listener';
+import { registerEvenementReminderEmailListener } from './profile/evenement/infra/mailer/evenement-reminder-email.listener';
 import { createEvenementRouter } from './profile/evenement/presentation/routes/evenement.route';
 import { makeCancelReservationUseCase } from './reservation/app/usecases/cancel-reservation.usecase';
 import { makeCreateReservationUseCase } from './reservation/app/usecases/create-reservation.usecase';
@@ -52,6 +55,7 @@ import { nodeTokenSecurityGateway } from './auth/infra/security/node-token-secur
 import { createAuthRouter } from './auth/presentation/routes/auth.route';
 import { db } from './core/dataBase.config';
 import { errorMiddleware } from './core/middleware/erreur.middleware';
+import { startHourlyJob } from './core/scheduling/hourly-job';
 import { AppError } from './core/http/error.response';
 import { registerSignupEmailListeners } from './profile/user/infra/mailer/signup-email.listener';
 import { registerUserDeletionEmailListener } from './profile/user/infra/mailer/user-deletion-email.listener';
@@ -140,6 +144,8 @@ const startServer = async (): Promise<void> => {
   registerEvenementCancellationEmailListener();
   registerEvenementDateEmailListener(typeormReservationGateway);
   registerEvenementDeletionWarningEmailListener();
+  registerEvenementReminderEmailListener();
+  startHourlyJob(makeSendEvenementRemindersUseCase(typeormEvenementReminderGateway), '[MAIL] Les rappels d’événements ont échoué.');
   startEvenementCleanupScheduler(makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway));
   startRefreshTokenCleanupScheduler(makeCleanupRefreshTokensUseCase(typeormRefreshTokenGateway));
   app.listen(port, () => {

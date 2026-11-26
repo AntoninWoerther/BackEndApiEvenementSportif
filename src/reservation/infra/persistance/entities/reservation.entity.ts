@@ -23,6 +23,9 @@ export class ReservationEntity implements Reservation {
     @JoinColumn({ name: 'userId' })
     user!: UserEntity;
 
+    @Column('date', { nullable: true })
+    reminderSentForDate!: string | null;
+
     @CreateDateColumn({ type: 'datetime' })
     createdAt!: Date;
 }

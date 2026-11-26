@@ -1,5 +1,5 @@
 import { eventEmitter } from '../../../../core/bus/event.emiter';
-import { formatParisDay } from '../../../../core/date/paris-day';
+import { formatParisDay, shiftDay } from '../../../../core/date/paris-day';
 import { EVENEMENT_EVENTS } from '../../domain/events/evenement.events';
 import type { EvenementDeletionWarningEvent } from '../../domain/events/evenement.events';
 import type { EvenementCleanupGateway } from '../interfaces/evenement-cleanup.gateway';
@@ -7,12 +7,6 @@ import type { EvenementCleanupGateway } from '../interfaces/evenement-cleanup.ga
 const WARNING_AFTER_DAYS = 5;
 const DELETE_AFTER_DAYS = 7;
 const CANCELLED_RETENTION_MS = 5 * 24 * 60 * 60 * 1000;
-
-const shiftDay = (day: string, days: number): string => {
-    const date = new Date(day + 'T00:00:00.000Z');
-    date.setUTCDate(date.getUTCDate() + days);
-    return date.toISOString().slice(0, 10);
-};
 
 export type CleanupEvenementsUseCase = (now?: Date) => Promise<number>;
 

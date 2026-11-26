@@ -1,4 +1,4 @@
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+import { startHourlyJob } from './hourly-job';
 
 interface CleanupMessages {
     deleted(count: number): string;
@@ -6,26 +6,10 @@ interface CleanupMessages {
 }
 
 export const startHourlyCleanup = (cleanup: () => Promise<number>, messages: CleanupMessages): void => {
-    let running = false;
-
-    const run = async (): Promise<void> => {
-        if (running) {
-            return;
+    startHourlyJob(async () => {
+        const deleted = await cleanup();
+        if (deleted > 0) {
+            console.log(messages.deleted(deleted));
         }
-
-        running = true;
-        try {
-            const deleted = await cleanup();
-            if (deleted > 0) {
-                console.log(messages.deleted(deleted));
-            }
-        } catch (error) {
-            console.error(messages.failed, error);
-        } finally {
-            running = false;
-        }
-    };
-
-    void run();
-    setInterval(run, CLEANUP_INTERVAL_MS).unref();
+    }, messages.failed);
 };

@@ -121,7 +121,7 @@ Par défaut, l’`accessToken` expire après **5 minutes**. Si une route protég
    ```
 
 2. Si l’API répond `200`, garde **les deux nouveaux jetons**. Remplace la valeur du Bearer Token par le nouvel `accessToken`, puis rejoue ta requête. Garde le nouveau `refreshToken` pour le prochain renouvellement ou la déconnexion. Chaque renouvellement révoque le `refreshToken` utilisé.
-3. Si `/auth/refresh` renvoie `401` avec `AUTH_003`, `AUTH_004` ou `AUTH_005`, reconnecte-toi via `POST http://localhost:3000/auth/login` avec ton e-mail et ton mot de passe pour obtenir une nouvelle paire de jetons.
+3. Si `/auth/refresh` renvoie `401` avec `AUTH_003` (jeton invalide, expiré ou révoqué), reconnecte-toi via `POST http://localhost:3000/auth/login` avec ton e-mail et ton mot de passe pour obtenir une nouvelle paire de jetons.
 
 ### Parcours 1 · Créer et modifier son événement
 
@@ -160,7 +160,7 @@ Dans les parcours, ajoute les chemins à `http://localhost:3000`. Pour les route
 2. **Se connecter.** Envoie `POST /auth/login` avec le corps JSON `{"email": "alex@example.com", "password": "MotDePasseLocal456!"}`. Résultat attendu `200`. Garde les deux jetons d’Alex et utilise son `accessToken` pour les requêtes protégées de ce parcours.
 3. **Afficher les événements.** Envoie `GET /evenements` avec un corps vide. Résultat attendu `200`. Retrouve l’événement du premier parcours à l’aide de son `id`. Le champ `location` affiche `Salle omnisports` et `remainingPlaces` vaut `1`.
 4. **S’inscrire à l’événement.** Envoie `POST /evenements/<id>/reservations` avec le token d’Alex et un corps vide. Résultat attendu `201`.
-5. **Tenter de modifier l’événement de Camille.** Envoie `PATCH /evenements/<id>` avec le token d’Alex et le corps JSON `{"location": "Terrain extérieur"}`. Résultat attendu `403` avec le code `EVENEMENT_006`, car Alex n’a pas le droit de modifier les événements d’un autre créateur.
+5. **Tenter de modifier l’événement de Camille.** Envoie `PATCH /evenements/<id>` avec le token d’Alex et le corps JSON `{"location": "Terrain extérieur"}`. Résultat attendu `403` avec le code `EVENEMENT_006`, car Alex n’a pas le droit de modifier les événements d’un autre créateur. Modifier la date avec `PATCH /evenements/<id>/date` demande les mêmes droits et renvoie le même code en cas de refus.
 6. **Se déconnecter.** Envoie `POST /auth/logout` avec le corps JSON ci-dessous et la valeur du `refreshToken` d’Alex. Résultat attendu `200`. Pour vérifier la déconnexion, rejoue `GET /auth/me` avec son dernier `accessToken`. La requête doit renvoyer `401`.
 
    ```json

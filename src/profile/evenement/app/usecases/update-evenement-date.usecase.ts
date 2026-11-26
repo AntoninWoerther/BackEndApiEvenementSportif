@@ -1,5 +1,5 @@
 import type { EventPublisher } from '../../../../core/bus/event-bus';
-import { EvenementDateUpdateForbiddenError } from '../../domain/errors/evenement-date-update-forbidden.error';
+import { EvenementUpdateForbiddenError } from '../../domain/errors/evenement-update-forbidden.error';
 import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
 import { EvenementNotFoundError } from '../../domain/errors/evenement-not-found.error';
 import { EVENEMENT_EVENTS } from '../../domain/events/evenement.events';
@@ -31,7 +31,7 @@ export const makeUpdateEvenementDateUseCase = (
             case 'evenement-not-found':
                 throw new EvenementNotFoundError();
             case 'forbidden':
-                throw new EvenementDateUpdateForbiddenError();
+                throw new EvenementUpdateForbiddenError();
             case 'already-cancelled':
                 throw new EvenementCancelledError();
         }

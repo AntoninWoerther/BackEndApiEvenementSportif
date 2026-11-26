@@ -2,7 +2,7 @@ import type { EventPublisher } from '../../../../core/bus/event-bus';
 import { publishWaitlistPromotion } from '../../../../reservation/app/publish-waitlist-promotion';
 import type { WaitlistEvents } from '../../../../reservation/domain/events/waitlist-promoted.event';
 import { EvenementCapacityTooLowError } from '../../domain/errors/evenement-capacity-too-low.error';
-import { EvenementDetailsUpdateForbiddenError } from '../../domain/errors/evenement-details-update-forbidden.error';
+import { EvenementUpdateForbiddenError } from '../../domain/errors/evenement-update-forbidden.error';
 import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
 import { EvenementNotFoundError } from '../../domain/errors/evenement-not-found.error';
 import type { Evenement } from '../../domain/evenement';
@@ -32,7 +32,7 @@ export const makeUpdateEvenementDetailsUseCase = (
             case 'evenement-not-found':
                 throw new EvenementNotFoundError();
             case 'forbidden':
-                throw new EvenementDetailsUpdateForbiddenError();
+                throw new EvenementUpdateForbiddenError();
             case 'already-cancelled':
                 throw new EvenementCancelledError();
             case 'capacity-too-low':

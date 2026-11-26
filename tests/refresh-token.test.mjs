@@ -81,7 +81,7 @@ test('le renouvellement révoque l’ancien jeton et conserve la même session',
     assert.equal(tokens[1].hashedToken, hashRefreshToken(refreshToken));
     assert.equal(tokens[1].sessionId, sessionId);
 
-    await assert.rejects(refresh(initialToken), { errorid: 'AUTH_004' });
+    await assert.rejects(refresh(initialToken), { errorid: 'AUTH_003' });
     await refresh(refreshToken);
     assert.equal(tokens.length, 3);
     assert.deepEqual(tokens[1].revokedAt, now);
@@ -90,7 +90,7 @@ test('le renouvellement révoque l’ancien jeton et conserve la même session',
 test('un jeton arrivé à expiration ne peut pas être renouvelé', async t => {
     const tokens = seedSession(t, now);
 
-    await assert.rejects(refresh(initialToken), { errorid: 'AUTH_005' });
+    await assert.rejects(refresh(initialToken), { errorid: 'AUTH_003' });
     assert.equal(tokens.length, 1);
     assert.equal(tokens[0].revokedAt, null);
 });

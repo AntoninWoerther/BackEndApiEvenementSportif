@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { db } from '../src/core/dataBase.config.ts';
+import { makeUpdateEvenementDateUseCase } from '../src/profile/evenement/app/usecases/update-evenement-date.usecase.ts';
 import { makeUpdateEvenementDetailsUseCase } from '../src/profile/evenement/app/usecases/update-evenement-details.usecase.ts';
 import { EvenementEntity } from '../src/profile/evenement/infra/persistance/entities/evenement.entity.ts';
 import { typeormEvenementGateway } from '../src/profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway.ts';
@@ -79,6 +80,16 @@ test('le droit de modification distingue ses événements de ceux des autres', a
     assert.equal(countBy.mock.callCount(), 0);
     assert.equal(update.mock.callCount(), 0);
     assert.deepEqual(await updateDetails(10, 21, input, UPDATE_OTHER_EVENTS), { ...event, capacity: 4 });
+});
+
+test('le refus de modifier la date utilise le même code que le refus de modifier les autres détails', async t => {
+    const publish = t.mock.fn();
+    const updateDate = makeUpdateEvenementDateUseCase({ updateDate: async () => 'forbidden' }, { publish });
+
+    await assert.rejects(updateDate(10, 21, '2030-05-09', UPDATE_EVENT), {
+        errorid: 'EVENEMENT_006'
+    });
+    assert.equal(publish.mock.callCount(), 0);
 });
 
 test('les données vides, invalides et les champs hors périmètre sont refusés avant la transaction', async t => {

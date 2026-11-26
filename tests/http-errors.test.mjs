@@ -6,9 +6,8 @@ import { test } from 'node:test';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { makeGetAuthenticatedUserUseCase } from '../src/auth/app/usecases/get-authenticated-user.usecase.ts';
-import { ExpiredRefreshTokenError } from '../src/auth/domain/errors/expired-refresh-token.error.ts';
-import { InvalidRefreshTokenError } from '../src/auth/domain/errors/invalid-refresh-token.error.ts';
-import { RevokedRefreshTokenError } from '../src/auth/domain/errors/revoked-refresh-token.error.ts';
+import { createLogoutUseCase } from '../src/auth/app/usecases/logout.usecase.ts';
+import { createRefreshUseCase } from '../src/auth/app/usecases/refresh.usecase.ts';
 import { makeAuthMiddleware } from '../src/auth/infra/gards/auth.middleware.ts';
 import { makeLoadUserPermissions } from '../src/auth/infra/gards/user-permissions.middleware.ts';
 import { createAuthRouter } from '../src/auth/presentation/routes/auth.route.ts';
@@ -17,6 +16,7 @@ import { AppError } from '../src/core/errors/app.error.ts';
 import { errorMiddleware } from '../src/core/middleware/erreur.middleware.ts';
 import { EvenementCapacityTooLowError } from '../src/profile/evenement/domain/errors/evenement-capacity-too-low.error.ts';
 import { EvenementNotFoundError } from '../src/profile/evenement/domain/errors/evenement-not-found.error.ts';
+import { EvenementUpdateForbiddenError } from '../src/profile/evenement/domain/errors/evenement-update-forbidden.error.ts';
 import { makeGetUserByIdUseCase } from '../src/profile/user/app/usecases/get-user-by-id.usecase.ts';
 import { makeGetUsersUseCase } from '../src/profile/user/app/usecases/get-users.usecase.ts';
 import { DEFAULT_USER_PERMISSIONS, USER_PERMISSIONS } from '../src/profile/user/domain/permissions/user.permissions.ts';
@@ -24,13 +24,14 @@ import { typeormUserGateway } from '../src/profile/user/infra/persistance/reposi
 import { createUserRouter } from '../src/profile/user/presentation/routes/user.route.ts';
 import { InvalidWaitlistEntryIdError } from '../src/reservation/domain/errors/waitlist.errors.ts';
 
-function createAuthTestApp(refresh) {
+function createAuthTestApp(refresh, logout) {
     const app = express();
     app.use(express.json());
     app.use('/auth', createAuthRouter({
         authMiddleware: makeAuthMiddleware({ hasActiveSession: async () => true }),
         getAuthenticatedUser: makeGetAuthenticatedUserUseCase(typeormUserGateway),
-        refresh
+        refresh,
+        logout
     }));
     app.use(errorMiddleware);
     return app;
@@ -87,17 +88,26 @@ function setJwtSecret(t, secret) {
 const jsonHeaders = { 'Content-Type': 'application/json' };
 const refreshBody = JSON.stringify({ refreshToken: 'jeton-de-test' });
 
-test('un jeton de renouvellement invalide, révoqué ou expiré conserve son code métier', async () => {
-    const tokenErrors = [
-        [new InvalidRefreshTokenError(), 'AUTH_003'],
-        [new RevokedRefreshTokenError(), 'AUTH_004'],
-        [new ExpiredRefreshTokenError(), 'AUTH_005']
+test('un jeton inutilisable renvoie la même erreur au renouvellement et à la déconnexion', async () => {
+    const expired = new Date(0);
+    const activeExpiry = new Date('2100-01-01T00:00:00Z');
+    const cases = [
+        { storedToken: null, logoutResult: 'invalid' },
+        { storedToken: { revokedAt: expired, expiresAt: activeExpiry }, logoutResult: 'inactive' },
+        { storedToken: { revokedAt: null, expiresAt: expired }, logoutResult: 'expired' }
     ];
+    const tokens = { hashRefreshToken: token => token };
 
-    for (const [error, idcode] of tokenErrors) {
-        const app = createAuthTestApp(async () => { throw error; });
-        const response = await request(app, 'POST', '/auth/refresh', { body: refreshBody, headers: jsonHeaders });
-        assertError(response, 401, idcode);
+    for (const { storedToken, logoutResult } of cases) {
+        const refresh = createRefreshUseCase({ findByHash: async () => storedToken }, tokens);
+        const logout = createLogoutUseCase({ revokeByHash: async () => logoutResult }, tokens);
+        const app = createAuthTestApp(refresh, logout);
+
+        for (const path of ['/auth/refresh', '/auth/logout']) {
+            const response = await request(app, 'POST', path, { body: refreshBody, headers: jsonHeaders });
+            assertError(response, 401, 'AUTH_003');
+            assert.equal(response.payload.message, 'Le jeton de renouvellement est inutilisable.');
+        }
     }
 });
 
@@ -123,6 +133,7 @@ test('la validation du renouvellement utilise le format commun et inclut les cha
 test('le middleware choisit les statuts HTTP à partir des codes métier', async () => {
     const errors = [
         ['evenement-manquant', new EvenementNotFoundError(), 404, 'EVENEMENT_003'],
+        ['modification-interdite', new EvenementUpdateForbiddenError(), 403, 'EVENEMENT_006'],
         ['capacite-invalide', new EvenementCapacityTooLowError(), 409, 'EVENEMENT_007'],
         ['entree-invalide', new InvalidWaitlistEntryIdError(), 400, 'WAITLIST_004']
     ];
@@ -144,12 +155,16 @@ test('le middleware choisit les statuts HTTP à partir des codes métier', async
 test('une erreur métier sans correspondance est masquée par le message interne générique', async t => {
     t.mock.method(console, 'error', () => {});
     const app = express();
-    app.get('/unmapped', () => { throw new AppError('Détail interne.', 'UNMAPPED_TEST'); });
+    app.get('/unmapped/:code', (req) => {
+        throw new AppError('Détail interne.', req.params.code);
+    });
     app.use(errorMiddleware);
 
-    const response = await request(app, 'GET', '/unmapped');
-    assertError(response, 500, 'err-00-500');
-    assert.equal(response.payload.message, 'Erreur interne du serveur.');
+    for (const code of ['UNMAPPED_TEST', '401']) {
+        const response = await request(app, 'GET', `/unmapped/${code}`);
+        assertError(response, 500, 'err-00-500');
+        assert.equal(response.payload.message, 'Erreur interne du serveur.');
+    }
 });
 
 test('une route protégée sans jeton renvoie le format commun', async () => {

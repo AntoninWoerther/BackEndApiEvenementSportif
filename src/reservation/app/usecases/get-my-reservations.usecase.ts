@@ -12,8 +12,9 @@ export const makeGetMyReservationsUseCase = (
         const today = formatParisDay(new Date());
 
         return reservations.map(reservation => {
-            const { date } = reservation.evenement;
-            const status = date < today ? 'finished' : date === today ? 'today' : 'upcoming';
+            const { date, cancelledAt } = reservation.evenement;
+            const dateStatus = date < today ? 'finished' : date === today ? 'today' : 'upcoming';
+            const status = cancelledAt ? 'cancelled' : dateStatus;
             return {
                 ...reservation,
                 evenement: { ...reservation.evenement, status }

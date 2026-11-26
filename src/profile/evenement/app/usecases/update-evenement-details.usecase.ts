@@ -1,5 +1,6 @@
 import { EvenementCapacityTooLowError } from '../../domain/errors/evenement-capacity-too-low.error';
 import { EvenementDetailsUpdateForbiddenError } from '../../domain/errors/evenement-details-update-forbidden.error';
+import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
 import { EvenementNotFoundError } from '../../domain/errors/evenement-not-found.error';
 import type { Evenement } from '../../domain/evenement';
 import type { UpdateEvenementDetailsInput } from '../inputs/update-evenement-details.input';
@@ -27,6 +28,8 @@ export const makeUpdateEvenementDetailsUseCase = (
                 throw new EvenementNotFoundError();
             case 'forbidden':
                 throw new EvenementDetailsUpdateForbiddenError();
+            case 'already-cancelled':
+                throw new EvenementCancelledError();
             case 'capacity-too-low':
                 throw new EvenementCapacityTooLowError();
         }

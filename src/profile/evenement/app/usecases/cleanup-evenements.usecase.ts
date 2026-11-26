@@ -6,6 +6,7 @@ import type { EvenementCleanupGateway } from '../interfaces/evenement-cleanup.ga
 
 const WARNING_AFTER_DAYS = 5;
 const DELETE_AFTER_DAYS = 7;
+const CANCELLED_RETENTION_MS = 5 * 24 * 60 * 60 * 1000;
 
 const shiftDay = (day: string, days: number): string => {
     const date = new Date(day + 'T00:00:00.000Z');
@@ -18,7 +19,8 @@ export type CleanupEvenementsUseCase = (now?: Date) => Promise<number>;
 export const makeCleanupEvenementsUseCase = (gateway: EvenementCleanupGateway): CleanupEvenementsUseCase => {
     return async (now = new Date()) => {
         const today = formatParisDay(now);
-        const deleted = await gateway.deleteExpired(shiftDay(today, -DELETE_AFTER_DAYS));
+        const lastExpiredCancellation = new Date(now.getTime() - CANCELLED_RETENTION_MS);
+        const deleted = await gateway.deleteExpired(shiftDay(today, -DELETE_AFTER_DAYS), lastExpiredCancellation);
         const lastWarningDate = shiftDay(today, -WARNING_AFTER_DAYS);
         const toWarn = await gateway.findToWarn(shiftDay(today, 1 - DELETE_AFTER_DAYS), lastWarningDate);
 

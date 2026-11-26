@@ -12,14 +12,15 @@ const createReservation = makeCreateReservationUseCase(typeormReservationGateway
 const eventId = 10;
 const capacity = 2;
 
-function seedEvent(t, date = '2029-06-03') {
+function seedEvent(t, date = '2029-06-03', cancelledAt = null) {
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2029-06-01T22:00:00Z') });
-    const event = { id: eventId, capacity, date };
+    const event = { id: eventId, capacity, date, cancelledAt };
     const reservations = [{ id: 1, evenementId: eventId, userId: 20 }];
     const repositories = new Map([
         [EvenementEntity, {
             async findOne({ where, select, lock }) {
                 assert.equal(select.date, true);
+                assert.equal(select.cancelledAt, true);
                 assert.deepEqual(lock, { mode: 'pessimistic_write' });
                 return where.id === event.id ? event : null;
             }
@@ -100,9 +101,19 @@ test('une inscription est encore possible le jour de l’événement à Paris', 
     assert.deepEqual(reservation, reservations[1]);
 });
 
-test('Mes réservations distingue les événements terminés, du jour et à venir selon la date à Paris', async t => {
+test('un événement annulé refuse toute nouvelle inscription même si sa date est future', async t => {
+    const reservations = seedEvent(t, '2029-06-03', new Date('2029-06-01T20:00:00Z'));
+
+    await assert.rejects(createReservation({ evenementId: eventId, userId: 21 }), {
+        statusCode: 409,
+        errorid: 'EVENEMENT_009'
+    });
+    assert.equal(reservations.length, 1);
+});
+
+test('Mes réservations distingue les événements terminés, du jour, à venir et annulés', async t => {
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2029-06-01T22:00:00Z') });
-    const reservations = ['2029-06-01', '2029-06-02', '2029-06-03'].map((date, index) => ({
+    const reservations = ['2029-06-01', '2029-06-02', '2029-06-03', '2029-06-04'].map((date, index) => ({
         id: index + 1,
         evenementId: index + 10,
         userId: 20,
@@ -113,7 +124,9 @@ test('Mes réservations distingue les événements terminés, du jour et à veni
             location: 'Gymnase',
             date,
             capacity: 2,
-            creatorId: 42
+            creatorId: 42,
+            cancelledAt: index === 3 ? new Date('2029-06-01T20:00:00Z') : null,
+            cancellationReason: index === 3 ? 'Gymnase indisponible' : null
         }
     }));
     const listByUserId = t.mock.fn(async () => reservations);
@@ -132,6 +145,8 @@ test('Mes réservations distingue les événements terminés, du jour et à veni
     assert.deepEqual(payload.map(({ evenement }) => [evenement.date, evenement.status]), [
         ['2029-06-01', 'finished'],
         ['2029-06-02', 'today'],
-        ['2029-06-03', 'upcoming']
+        ['2029-06-03', 'upcoming'],
+        ['2029-06-04', 'cancelled']
     ]);
+    assert.equal(payload[3].evenement.description, 'Gymnase indisponible');
 });

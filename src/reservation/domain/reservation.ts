@@ -12,5 +12,5 @@ export interface ReservationWithEvenement extends Reservation {
 }
 
 export interface ReservationWithEvenementStatus extends ReservationWithEvenement {
-    evenement: Evenement & { status: 'upcoming' | 'today' | 'finished' };
+    evenement: Evenement & { status: 'upcoming' | 'today' | 'finished' | 'cancelled' };
 }

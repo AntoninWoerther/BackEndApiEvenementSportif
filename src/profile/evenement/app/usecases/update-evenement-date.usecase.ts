@@ -1,5 +1,6 @@
 import { eventEmitter } from '../../../../core/bus/event.emiter';
 import { EvenementDateUpdateForbiddenError } from '../../domain/errors/evenement-date-update-forbidden.error';
+import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
 import { EvenementNotFoundError } from '../../domain/errors/evenement-not-found.error';
 import { EVENEMENT_EVENTS } from '../../domain/events/evenement.events';
 import type { EvenementDateUpdatedEvent } from '../../domain/events/evenement.events';
@@ -28,6 +29,8 @@ export const makeUpdateEvenementDateUseCase = (gateway: EvenementGateway): Updat
                 throw new EvenementNotFoundError();
             case 'forbidden':
                 throw new EvenementDateUpdateForbiddenError();
+            case 'already-cancelled':
+                throw new EvenementCancelledError();
         }
     };
 };

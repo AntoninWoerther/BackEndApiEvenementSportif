@@ -4,6 +4,8 @@ import { validate } from 'class-validator';
 import type { Request, Response } from 'express';
 import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
 import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
+import { presentMessage } from '../../../../core/http/message.presenter';
+import type { CancelEvenementUseCase } from '../../app/usecases/cancel-evenement.usecase';
 import type { CreateEvenementUseCase } from '../../app/usecases/create-evenement.usecase';
 import type { DeleteEvenementUseCase } from '../../app/usecases/delete-evenement.usecase';
 import type { GetEvenementByIdUseCase } from '../../app/usecases/get-evenement-by-id.usecase';
@@ -11,10 +13,11 @@ import type { GetEvenementsUseCase } from '../../app/usecases/get-evenements.use
 import type { UpdateEvenementDateUseCase } from '../../app/usecases/update-evenement-date.usecase';
 import type { UpdateEvenementDetailsUseCase } from '../../app/usecases/update-evenement-details.usecase';
 import { parseEvenementId } from '../routes/parse-evenement-id';
+import { CancelEvenementDto } from '../dtos/cancel-evenement.dto';
 import { CreateEvenementDto } from '../dtos/create-evenement.dto';
 import { EvenementDateDto } from '../dtos/evenement-date.dto';
 import { UpdateEvenementDetailsDto } from '../dtos/update-evenement-details.dto';
-import { presentEvenement, presentEvenementWithAvailability } from '../presenters/evenement.presenter';
+import { presentEvenement, presentEvenementDateUpdate, presentEvenementWithAvailability } from '../presenters/evenement.presenter';
 
 const getAuthenticatedUserId = (req: Request): number => {
     const userId = req.user?.id;
@@ -64,13 +67,23 @@ export const createEvenementController = (createEvenement: CreateEvenementUseCas
     };
 };
 
+export const cancelEvenementController = (cancelEvenement: CancelEvenementUseCase) => {
+    return async (req: Request<{ id: string }>, res: Response) => {
+        const userId = getAuthenticatedUserId(req);
+        const id = parseEvenementId(req.params.id);
+        const { reason } = await validateEvenementBody(CancelEvenementDto, req.body);
+        const evenement = await cancelEvenement(id, userId, reason, req.user?.permissions ?? 0);
+        return res.status(200).json(presentEvenement(evenement));
+    };
+};
+
 export const deleteEvenementController = (deleteEvenement: DeleteEvenementUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
         const userId = getAuthenticatedUserId(req);
         const id = parseEvenementId(req.params.id);
 
         await deleteEvenement(id, userId);
-        return res.status(200).json({ message: 'Événement supprimé avec succès.' });
+        return res.status(200).json(presentMessage('Événement supprimé avec succès.'));
     };
 };
 
@@ -99,6 +112,6 @@ export const updateEvenementDateController = (updateEvenementDate: UpdateEveneme
         const { date } = await validateEvenementBody(EvenementDateDto, req.body);
 
         await updateEvenementDate(id, userId, date, req.user?.permissions ?? 0);
-        return res.status(200).json({ id, date, message: 'Date de l’événement modifiée avec succès.' });
+        return res.status(200).json(presentEvenementDateUpdate(id, date));
     };
 };

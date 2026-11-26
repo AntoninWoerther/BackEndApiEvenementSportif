@@ -9,7 +9,12 @@ import { getUserByIdUseCase } from '../../app/usecases/get-user-by-id.usecase';
 import { getUsersUseCase } from '../../app/usecases/get-users.usecase';
 import { parseUserId } from '../routes/parse-user-id';
 import { InvalidUserPermissionsError } from '../../domain/errors/invalid-user-permissions.error';
-import { presentUser } from '../presenters/user.presenter';
+import {
+    presentUser,
+    presentUserAccountStatus,
+    presentUserPermissionChange,
+    presentUserPermissions
+} from '../presenters/user.presenter';
 import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { GrantUserPermissionDto } from '../dtos/grant-user-permission.dto';
 import { UserToCreateDto } from '../dtos/user.dto';
@@ -19,6 +24,7 @@ import { validate } from 'class-validator';
 
 import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
 import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
+import { presentMessage } from '../../../../core/http/message.presenter';
 
 import type { Request, Response } from 'express';
 
@@ -57,7 +63,7 @@ export const setUsers = async (req: Request, res: Response) => {
 
     await createUserUseCase(data);
 
-    return res.status(202).json({ message: 'Votre demande d’inscription a été reçue.' });
+    return res.status(202).json(presentMessage('Votre demande d’inscription a été reçue.'));
 };
 
 export const createChangePasswordController = (changePassword: ChangePasswordUseCase) => {
@@ -76,7 +82,7 @@ export const createChangePasswordController = (changePassword: ChangePasswordUse
 
         await changePassword(userId, data);
 
-        return res.status(200).json({ message: 'Mot de passe modifié avec succès.' });
+        return res.status(200).json(presentMessage('Mot de passe modifié avec succès.'));
     };
 };
 
@@ -95,7 +101,7 @@ export const createGrantUserPermissionController = (grantPermission: ChangeUserP
         }
 
         const permissions = await grantPermission(actorId, userId, data.permissions);
-        return res.status(200).json({ userId, permissions });
+        return res.status(200).json(presentUserPermissions(userId, permissions));
     };
 };
 
@@ -108,7 +114,7 @@ export const createRevokeUserPermissionController = (revokePermission: ChangeUse
         }
 
         const permissions = await revokePermission(actorId, userId, Number(req.params.permission));
-        return res.status(200).json({ userId, permissions });
+        return res.status(200).json(presentUserPermissions(userId, permissions));
     };
 };
 
@@ -119,7 +125,7 @@ export const createExportUserPermissionChangesController = (exportChanges: Expor
             .attachment('user-permission-changes.json')
             .set('Cache-Control', 'no-store')
             .status(200)
-            .json(changes);
+            .json(changes.map(presentUserPermissionChange));
     };
 };
 
@@ -129,7 +135,7 @@ export const createChangeUserAccountStatusController = (changeStatus: ChangeUser
         const userId = parseUserId(req.params.id);
         const suspended = await changeStatus(actorId, userId);
 
-        return res.status(200).json({ userId, suspended });
+        return res.status(200).json(presentUserAccountStatus(userId, suspended));
     };
 };
 
@@ -142,7 +148,7 @@ export const delUser = async (req: Request<{ id: string }>, res: Response) => {
     const id = parseUserId(req.params.id);
     await deleteUserUseCase(id, { id: user.id, permissions: user.permissions });
 
-    return res.status(200).json({ message: 'Utilisateur supprimé avec succès.' });
+    return res.status(200).json(presentMessage('Utilisateur supprimé avec succès.'));
 };
 
 export const getUserById = async (req: Request<{ id: string }>, res: Response) => {

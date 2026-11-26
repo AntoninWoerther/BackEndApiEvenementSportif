@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { InvalidTokenError } from '../../../auth/domain/errors/invalid-token.error';
+import { presentMessage } from '../../../core/http/message.presenter';
 import { parseEvenementId } from '../../../profile/evenement/presentation/routes/parse-evenement-id';
 import { parseUserId } from '../../../profile/user/presentation/routes/parse-user-id';
 import type { ReservationParticipantInput } from '../../app/inputs/reservation-participant.input';
@@ -8,7 +9,7 @@ import type { CreateReservationUseCase } from '../../app/usecases/create-reserva
 import type { GetEventParticipantsUseCase } from '../../app/usecases/get-event-participants.usecase';
 import type { GetMyReservationsUseCase } from '../../app/usecases/get-my-reservations.usecase';
 import type { RemoveEventParticipantUseCase } from '../../app/usecases/remove-event-participant.usecase';
-import { presentReservation, presentReservationWithEvenement } from '../presenters/reservation.presenter';
+import { presentEventParticipant, presentReservation, presentReservationWithEvenement } from '../presenters/reservation.presenter';
 
 type ReservationRequest = Request<{ evenementId: string }>;
 
@@ -44,7 +45,7 @@ export const createReservationController = (createReservation: CreateReservation
 export const cancelReservationController = (cancelReservation: CancelReservationUseCase) => {
     return async (req: ReservationRequest, res: Response) => {
         await cancelReservation(getReservationParticipant(req));
-        return res.status(200).json({ message: 'Participation annulée avec succès.' });
+        return res.status(200).json(presentMessage('Participation annulée avec succès.'));
     };
 };
 
@@ -58,7 +59,7 @@ export const getEventParticipantsController = (getEventParticipants: GetEventPar
 
         const evenementId = parseEvenementId(req.params.evenementId);
         const participants = await getEventParticipants(evenementId, { id, permissions });
-        return res.status(200).set('Cache-Control', 'no-store').json(participants);
+        return res.status(200).set('Cache-Control', 'no-store').json(participants.map(presentEventParticipant));
     };
 };
 
@@ -68,6 +69,6 @@ export const removeEventParticipantController = (removeEventParticipant: RemoveE
         const userId = parseUserId(req.params.userId);
 
         await removeEventParticipant({ evenementId, userId });
-        return res.status(200).json({ message: 'Participant retiré de l’événement.' });
+        return res.status(200).json(presentMessage('Participant retiré de l’événement.'));
     };
 };

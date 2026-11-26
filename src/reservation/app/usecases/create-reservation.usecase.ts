@@ -1,4 +1,5 @@
 import { InvalidTokenError } from '../../../auth/domain/errors/invalid-token.error';
+import { EvenementCancelledError } from '../../../profile/evenement/domain/errors/evenement-cancelled.error';
 import { EvenementNotFoundError } from '../../../profile/evenement/domain/errors/evenement-not-found.error';
 import { EvenementFullError } from '../../domain/errors/evenement-full.error';
 import { EvenementPastError } from '../../domain/errors/evenement-past.error';
@@ -22,6 +23,8 @@ export const makeCreateReservationUseCase = (gateway: ReservationGateway): Creat
                 throw new ReservationAlreadyExistsError();
             case 'evenement-full':
                 throw new EvenementFullError();
+            case 'evenement-cancelled':
+                throw new EvenementCancelledError();
             case 'evenement-past':
                 throw new EvenementPastError();
             case 'user-not-found':

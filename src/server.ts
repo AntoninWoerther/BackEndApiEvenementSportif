@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
+import { makeCancelEvenementUseCase } from './profile/evenement/app/usecases/cancel-evenement.usecase';
 import { makeCleanupEvenementsUseCase } from './profile/evenement/app/usecases/cleanup-evenements.usecase';
 import { makeCreateEvenementUseCase } from './profile/evenement/app/usecases/create-evenement.usecase';
 import { makeDeleteEvenementUseCase } from './profile/evenement/app/usecases/delete-evenement.usecase';
@@ -11,6 +12,7 @@ import { makeUpdateEvenementDetailsUseCase } from './profile/evenement/app/useca
 import { typeormEvenementCleanupGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement-cleanup.gateway';
 import { typeormEvenementGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway';
 import { startEvenementCleanupScheduler } from './profile/evenement/infra/scheduling/evenement-cleanup.scheduler';
+import { registerEvenementCancellationEmailListener } from './profile/evenement/infra/mailer/evenement-cancellation-email.listener';
 import { registerEvenementDateEmailListener } from './profile/evenement/infra/mailer/evenement-date-email.listener';
 import { registerEvenementDeletionWarningEmailListener } from './profile/evenement/infra/mailer/evenement-deletion-warning-email.listener';
 import { createEvenementRouter } from './profile/evenement/presentation/routes/evenement.route';
@@ -50,6 +52,7 @@ import { registerUserDeletionEmailListener } from './profile/user/infra/mailer/u
 
 const app = express();
 const port = 3000;
+const cancelEvenement = makeCancelEvenementUseCase(typeormEvenementGateway);
 const createEvenement = makeCreateEvenementUseCase(typeormEvenementGateway);
 const deleteEvenement = makeDeleteEvenementUseCase(typeormEvenementGateway);
 const getEvenementById = makeGetEvenementByIdUseCase(typeormEvenementGateway);
@@ -75,6 +78,7 @@ const issueRefreshToken = createIssueRefreshTokenUseCase(typeormRefreshTokenGate
 app.use(cors());
 app.use(express.json());
 app.use('/evenements', createEvenementRouter({
+  cancelEvenement,
   createEvenement,
   deleteEvenement,
   getEvenementById,
@@ -120,6 +124,7 @@ const startServer = async (): Promise<void> => {
   await db.initialize();
   registerSignupEmailListeners();
   registerUserDeletionEmailListener();
+  registerEvenementCancellationEmailListener();
   registerEvenementDateEmailListener(typeormReservationGateway);
   registerEvenementDeletionWarningEmailListener();
   startEvenementCleanupScheduler(makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway));

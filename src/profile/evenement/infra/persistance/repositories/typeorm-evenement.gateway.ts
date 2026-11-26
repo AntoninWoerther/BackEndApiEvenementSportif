@@ -2,7 +2,8 @@ import { IsNull, Not, Or, QueryFailedError } from 'typeorm';
 import type { SelectQueryBuilder } from 'typeorm';
 import { db } from '../../../../../core/dataBase.config';
 import { ReservationEntity } from '../../../../../reservation/infra/persistance/entities/reservation.entity';
-import type { EvenementGateway, UpdateEvenementDetailsResult, UpdateEvenementScope } from '../../../app/interfaces/evenement.gateway';
+import { findReservationParticipantEmails } from '../../../../../reservation/infra/persistance/repositories/typeorm-reservation.gateway';
+import type { CancelEvenementResult, EvenementGateway, UpdateEvenementDetailsResult, UpdateEvenementScope } from '../../../app/interfaces/evenement.gateway';
 import type { EvenementWithAvailability } from '../../../domain/evenement';
 import { EvenementEntity } from '../entities/evenement.entity';
 
@@ -14,7 +15,9 @@ const buildEvenementAvailabilityQuery = () => {
             'evenement.location',
             'evenement.date',
             'evenement.capacity',
-            'evenement.creatorId'
+            'evenement.creatorId',
+            'evenement.cancelledAt',
+            'evenement.cancellationReason'
         ])
         .addSelect(query => query
             .select('COUNT(*)')
@@ -30,7 +33,7 @@ const readEvenementsWithAvailability = async (
     // The subquery counts reservations without adding rows to the event result.
     return entities.map((evenement, index) => ({
         ...evenement,
-        remainingPlaces: Math.max(0, evenement.capacity - Number(raw[index].reservationCount))
+        remainingPlaces: evenement.cancelledAt ? 0 : Math.max(0, evenement.capacity - Number(raw[index].reservationCount))
     }));
 };
 
@@ -71,8 +74,23 @@ export const typeormEvenementGateway: EvenementGateway = {
         }
     },
     async deleteOwnedBy(evenementId, creatorId) {
-        const result = await db.getRepository(EvenementEntity).delete({ id: evenementId, creatorId });
-        return result.affected === 1;
+        const events = db.getRepository(EvenementEntity);
+        const result = await events.delete({ id: evenementId, creatorId, cancelledAt: IsNull() });
+        if (result.affected === 1) {
+            return 'deleted';
+        }
+
+        const evenement = await events.findOne({
+            where: { id: evenementId },
+            select: { id: true, creatorId: true, cancelledAt: true }
+        });
+        if (!evenement) {
+            return 'evenement-not-found';
+        }
+        if (evenement.creatorId !== creatorId) {
+            return 'forbidden';
+        }
+        return evenement.cancelledAt ? 'already-cancelled' : 'forbidden';
     },
     async updateDate(evenementId, userId, date, scope) {
         const repository = db.getRepository(EvenementEntity);
@@ -82,7 +100,7 @@ export const typeormEvenementGateway: EvenementGateway = {
             any: {}
         }[scope];
         const result = await repository.update(
-            { id: evenementId, ...ownerCriteria, date: Not(date) },
+            { id: evenementId, ...ownerCriteria, date: Not(date), cancelledAt: IsNull() },
             { date, deletionWarningSentAt: null }
         );
         if (result.affected === 1) {
@@ -91,13 +109,16 @@ export const typeormEvenementGateway: EvenementGateway = {
 
         const evenement = await repository.findOne({
             where: { id: evenementId },
-            select: { id: true, creatorId: true }
+            select: { id: true, creatorId: true, cancelledAt: true }
         });
         if (!evenement) {
             return 'evenement-not-found';
         }
 
-        return canUpdateEvenement(scope, evenement.creatorId, userId) ? 'unchanged' : 'forbidden';
+        if (!canUpdateEvenement(scope, evenement.creatorId, userId)) {
+            return 'forbidden';
+        }
+        return evenement.cancelledAt ? 'already-cancelled' : 'unchanged';
     },
     updateDetails(evenementId, userId, input, scope) {
         return db.transaction<UpdateEvenementDetailsResult>('READ COMMITTED', async manager => {
@@ -112,6 +133,10 @@ export const typeormEvenementGateway: EvenementGateway = {
             }
             if (!canUpdateEvenement(scope, evenement.creatorId, userId)) {
                 return { status: 'forbidden' };
+            }
+
+            if (evenement.cancelledAt) {
+                return { status: 'already-cancelled' };
             }
 
             if (input.capacity !== undefined) {
@@ -130,7 +155,27 @@ export const typeormEvenementGateway: EvenementGateway = {
             return { status: 'updated', evenement: { ...evenement, ...details } };
         });
     },
-    existsById(evenementId) {
-        return db.getRepository(EvenementEntity).existsBy({ id: evenementId });
+    cancel(evenementId, userId, reason, canCancelOther) {
+        return db.transaction<CancelEvenementResult>('READ COMMITTED', async manager => {
+            const events = manager.getRepository(EvenementEntity);
+            const evenement = await events.findOne({
+                where: { id: evenementId },
+                lock: { mode: 'pessimistic_write' }
+            });
+            if (!evenement) {
+                return { status: 'evenement-not-found' };
+            }
+            if (evenement.creatorId !== userId && !canCancelOther) {
+                return { status: 'forbidden' };
+            }
+            if (evenement.cancelledAt) {
+                return { status: 'already-cancelled' };
+            }
+
+            const cancellation = { cancelledAt: new Date(), cancellationReason: reason };
+            const participantEmails = await findReservationParticipantEmails(manager.getRepository(ReservationEntity), evenementId);
+            await events.update(evenementId, cancellation);
+            return { status: 'cancelled', evenement: { ...evenement, ...cancellation }, participantEmails };
+        });
     }
 };

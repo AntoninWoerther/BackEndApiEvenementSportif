@@ -6,7 +6,7 @@ export interface EvenementToWarn {
 }
 
 export interface EvenementCleanupGateway {
-    deleteExpired(lastExpiredDate: string): Promise<number>;
+    deleteExpired(lastExpiredDate: string, lastExpiredCancellation: Date): Promise<number>;
     findToWarn(firstDate: string, lastDate: string): Promise<EvenementToWarn[]>;
     markWarningSent(evenement: EvenementToWarn, sentAt: Date): Promise<boolean>;
 }

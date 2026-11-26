@@ -1,10 +1,24 @@
 import { QueryFailedError } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
 import { formatParisDay } from '../../../../core/date/paris-day';
 import { EvenementEntity } from '../../../../profile/evenement/infra/persistance/entities/evenement.entity';
 import type { CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
 import type { EventParticipant } from '../../../domain/event-participant';
 import { ReservationEntity } from '../entities/reservation.entity';
+
+export const findReservationParticipantEmails = async (
+    reservations: Repository<ReservationEntity>,
+    evenementId: number
+): Promise<string[]> => {
+    const participants = await reservations.createQueryBuilder('reservation')
+        .innerJoin('reservation.user', 'participant')
+        .select('participant.email', 'email')
+        .where('reservation.evenementId = :evenementId', { evenementId })
+        .getRawMany<{ email: string }>();
+
+    return participants.map(({ email }) => email);
+};
 
 export const typeormReservationGateway: ReservationGateway = {
     listByUserId(userId) {
@@ -22,7 +36,9 @@ export const typeormReservationGateway: ReservationGateway = {
                     location: true,
                     date: true,
                     capacity: true,
-                    creatorId: true
+                    creatorId: true,
+                    cancelledAt: true,
+                    cancellationReason: true
                 }
             },
             order: { evenement: { date: 'ASC' }, id: 'ASC' }
@@ -33,7 +49,7 @@ export const typeormReservationGateway: ReservationGateway = {
             return await db.transaction<CreateReservationResult>('READ COMMITTED', async (manager) => {
                 const evenement = await manager.getRepository(EvenementEntity).findOne({
                     where: { id: evenementId },
-                    select: { id: true, capacity: true, date: true },
+                    select: { id: true, capacity: true, date: true, cancelledAt: true },
                     lock: { mode: 'pessimistic_write' }
                 });
 
@@ -41,6 +57,9 @@ export const typeormReservationGateway: ReservationGateway = {
                     return { status: 'evenement-not-found' };
                 }
 
+                if (evenement.cancelledAt) {
+                    return { status: 'evenement-cancelled' };
+                }
                 if (evenement.date < formatParisDay(new Date())) {
                     return { status: 'evenement-past' };
                 }
@@ -97,14 +116,7 @@ export const typeormReservationGateway: ReservationGateway = {
             .orderBy('reservation.id', 'ASC')
             .getRawMany<EventParticipant>();
     },
-    async findParticipantEmails(evenementId) {
-        const participants = await db.getRepository(ReservationEntity)
-            .createQueryBuilder('reservation')
-            .innerJoin('reservation.user', 'participant')
-            .select('participant.email', 'email')
-            .where('reservation.evenementId = :evenementId', { evenementId })
-            .getRawMany<{ email: string }>();
-
-        return participants.map(({ email }) => email);
+    findParticipantEmails(evenementId) {
+        return findReservationParticipantEmails(db.getRepository(ReservationEntity), evenementId);
     }
 };

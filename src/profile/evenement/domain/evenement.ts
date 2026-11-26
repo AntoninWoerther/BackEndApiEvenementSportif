@@ -5,6 +5,8 @@ export interface Evenement {
     date: string;
     capacity: number;
     creatorId: number | null;
+    cancelledAt: Date | null;
+    cancellationReason: string | null;
 }
 
 export interface EvenementWithAvailability extends Evenement {

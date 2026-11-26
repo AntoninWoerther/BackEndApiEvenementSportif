@@ -23,6 +23,13 @@ export class EvenementEntity implements Evenement {
     @Column('datetime', { nullable: true })
     deletionWarningSentAt!: Date | null;
 
+    @Index('IDX_evenements_cancelled_at')
+    @Column('datetime', { nullable: true })
+    cancelledAt!: Date | null;
+
+    @Column('varchar', { length: 255, nullable: true })
+    cancellationReason!: string | null;
+
     @Column('int', { nullable: true })
     creatorId!: number | null;
 

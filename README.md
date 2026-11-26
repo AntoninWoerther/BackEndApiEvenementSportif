@@ -111,15 +111,26 @@ Un nouveau compte reçoit les permissions `1`, `2` et `4`, soit la valeur totale
 | `128` | `SUSPEND_ACCOUNT` | Suspendre un compte existant et révoquer ses sessions actives. Réservé aux superadmins. | `PATCH /users/<id>/suspend` |
 | `256` | `REACTIVATE_ACCOUNT` | Réactiver un compte suspendu. Réservé aux superadmins. | `PATCH /users/<id>/reactivate` |
 | `512` | `VIEW_OTHER_EVENT_PARTICIPANTS` | Consulter le nom et le prénom des inscrits aux événements des autres. Le créateur peut déjà consulter les inscrits à son propre événement. | `GET /evenements/<id>/participants` |
+| `1024` | `CANCEL_OTHER_EVENTS` | Annuler un événement créé par un autre utilisateur. Le créateur peut annuler son propre événement. | `PATCH /evenements/<id>/cancel` |
 
 ### Attribuer et retirer un droit dans Bruno
 
-Connecte-toi avec deux comptes de test distincts, un superadmin et un utilisateur ordinaire. Récupère `user.id` dans la réponse de connexion du compte ordinaire. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64` et `512`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour créer le compte de test superadmin, utilise la commande `grant:superuser` indiquée à l’étape précédente.
+Connecte-toi avec deux comptes de test distincts, un superadmin et un utilisateur ordinaire. Récupère `user.id` dans la réponse de connexion du compte ordinaire. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512` et `1024`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour créer le compte de test superadmin, utilise la commande `grant:superuser` indiquée à l’étape précédente.
 
 1. Avec le token du compte ordinaire, envoie `GET /evenements/<id>/participants` sur un événement créé par un autre compte. Tu dois recevoir `403` avec le code `AUTH_006`.
 2. Avec le token du superadmin, envoie `PATCH /users/<idUtilisateur>/permissions` avec le corps JSON `{"permissions": 512}`. Pour un compte ayant les droits par défaut, la réponse `200` contient `permissions: 519` car le droit `512` s’ajoute aux droits existants.
 3. Rejoue la première requête avec le token du compte ordinaire. Elle doit maintenant renvoyer `200`.
 4. Avec le token du superadmin, envoie `DELETE /users/<idUtilisateur>/permissions/512`. La réponse `200` contient de nouveau `permissions: 7` si le compte avait ses droits par défaut au départ. Le compte ordinaire reçoit à nouveau `403` sur la première requête.
+
+### Tester l’annulation d’un événement
+
+Avec l’access token du créateur ou d’un compte autorisé par le droit `1024`, envoie `PATCH /evenements/<id>/cancel` avec un motif obligatoire dans le corps JSON.
+
+```json
+{"reason": "Le gymnase est indisponible."}
+```
+
+L’API renvoie `200`. Le motif apparaît dans `description` et la date d’annulation dans `cancelledAt`. Chaque inscrit reçoit un mail simulé dans le terminal de l’API. Une nouvelle inscription renvoie `409` (`EVENEMENT_009`) et les réservations existantes affichent `evenement.status` à `cancelled`. Le nettoyage horaire supprime l’événement et ses réservations au premier passage après cinq jours depuis l’annulation.
 
 ## Lancer les tests automatisés
 

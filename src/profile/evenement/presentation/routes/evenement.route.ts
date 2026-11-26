@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { requireAnyUserPermission, requireUserPermission } from '../../../../auth/infra/gards/user-permissions.middleware';
 import { USER_PERMISSIONS } from '../../../user/domain/permissions/user.permissions';
+import type { CancelEvenementUseCase } from '../../app/usecases/cancel-evenement.usecase';
 import type { CreateEvenementUseCase } from '../../app/usecases/create-evenement.usecase';
 import type { DeleteEvenementUseCase } from '../../app/usecases/delete-evenement.usecase';
 import type { GetEvenementByIdUseCase } from '../../app/usecases/get-evenement-by-id.usecase';
@@ -9,6 +10,7 @@ import type { GetEvenementsUseCase } from '../../app/usecases/get-evenements.use
 import type { UpdateEvenementDateUseCase } from '../../app/usecases/update-evenement-date.usecase';
 import type { UpdateEvenementDetailsUseCase } from '../../app/usecases/update-evenement-details.usecase';
 import {
+    cancelEvenementController,
     createEvenementController,
     deleteEvenementController,
     getEvenementByIdController,
@@ -20,6 +22,7 @@ import {
 interface EvenementRouteDependencies {
     authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
+    cancelEvenement: CancelEvenementUseCase;
     createEvenement: CreateEvenementUseCase;
     deleteEvenement: DeleteEvenementUseCase;
     getEvenementById: GetEvenementByIdUseCase;
@@ -29,6 +32,7 @@ interface EvenementRouteDependencies {
 }
 
 export const createEvenementRouter = ({
+    cancelEvenement,
     createEvenement,
     deleteEvenement,
     getEvenementById,
@@ -56,6 +60,7 @@ export const createEvenementRouter = ({
         createEvenementController(createEvenement)
     );
     router.delete('/:id', authMiddleware, deleteEvenementController(deleteEvenement));
+    router.patch('/:id/cancel', authMiddleware, loadUserPermissions, cancelEvenementController(cancelEvenement));
     router.patch('/:id', ...updatePermissions, updateEvenementDetailsController(updateEvenementDetails));
     router.patch('/:id/date', ...updatePermissions, updateEvenementDateController(updateEvenementDate));
 

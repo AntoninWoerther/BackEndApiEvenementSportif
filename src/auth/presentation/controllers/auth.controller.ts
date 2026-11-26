@@ -12,6 +12,8 @@ import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { UserNotFound } from '../../../profile/user/domain/errors/user-not-found.error';
 import { ValidationFailedError } from '../../../core/errors/validation-failed.error';
 
+import { presentMessage } from '../../../core/http/message.presenter';
+import { presentAuthTokens, presentLogin } from '../presenters/auth.presenter';
 import type { Request, Response } from 'express';
 
 export const createLoginController = (loginUseCase: LoginUseCase) => async (req: Request, res: Response) => {
@@ -33,11 +35,7 @@ export const createLoginController = (loginUseCase: LoginUseCase) => async (req:
     const result = await loginUseCase(credentials);
 
     // 4. Retourner le résultat
-    return res.status(200).json({
-        user: presentUser(result.user),
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-    });
+    return res.status(200).json(presentLogin(result));
 };
 
 export const getMe = async (req: Request, res: Response) => {
@@ -65,7 +63,7 @@ export const createRefreshController = (refreshUseCase: RefreshUseCase) => async
     }
 
     const result = await refreshUseCase(data.refreshToken);
-    return res.status(200).json(result);
+    return res.status(200).json(presentAuthTokens(result));
 };
 
 export const createLogoutController = (logout: LogoutUseCase) => async (req: Request, res: Response) => {
@@ -80,7 +78,7 @@ export const createLogoutController = (logout: LogoutUseCase) => async (req: Req
 
     await logout(data.refreshToken);
 
-    return res.status(200).json({ message: 'Déconnexion réussie.' });
+    return res.status(200).json(presentMessage('Déconnexion réussie.'));
 };
 
 export const createLogoutAllController = (logoutAll: LogoutAllUseCase) => async (req: Request, res: Response) => {
@@ -90,5 +88,5 @@ export const createLogoutAllController = (logoutAll: LogoutAllUseCase) => async 
     }
 
     await logoutAll(userId);
-    return res.status(200).json({ message: 'Déconnexion de tous les appareils réussie.' });
+    return res.status(200).json(presentMessage('Déconnexion de tous les appareils réussie.'));
 };

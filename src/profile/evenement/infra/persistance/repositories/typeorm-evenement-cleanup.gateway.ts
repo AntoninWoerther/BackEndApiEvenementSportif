@@ -4,8 +4,11 @@ import type { EvenementCleanupGateway } from '../../../app/interfaces/evenement-
 import { EvenementEntity } from '../entities/evenement.entity';
 
 export const typeormEvenementCleanupGateway: EvenementCleanupGateway = {
-    async deleteExpired(lastExpiredDate) {
-        const result = await db.getRepository(EvenementEntity).delete({ date: LessThanOrEqual(lastExpiredDate) });
+    async deleteExpired(lastExpiredDate, lastExpiredCancellation) {
+        const result = await db.getRepository(EvenementEntity).delete([
+            { date: LessThanOrEqual(lastExpiredDate), cancelledAt: IsNull() },
+            { cancelledAt: LessThanOrEqual(lastExpiredCancellation) }
+        ]);
         return result.affected ?? 0;
     },
     async findToWarn(firstDate, lastDate) {
@@ -13,7 +16,8 @@ export const typeormEvenementCleanupGateway: EvenementCleanupGateway = {
             where: {
                 date: Between(firstDate, lastDate),
                 creatorId: Not(IsNull()),
-                deletionWarningSentAt: IsNull()
+                deletionWarningSentAt: IsNull(),
+                cancelledAt: IsNull()
             },
             select: { id: true, date: true, creator: { id: true, email: true } },
             relations: { creator: true }
@@ -25,7 +29,13 @@ export const typeormEvenementCleanupGateway: EvenementCleanupGateway = {
     },
     async markWarningSent(evenement, sentAt) {
         const result = await db.getRepository(EvenementEntity).update(
-            { id: evenement.id, date: evenement.date, creatorId: evenement.creatorId, deletionWarningSentAt: IsNull() },
+            {
+                id: evenement.id,
+                date: evenement.date,
+                creatorId: evenement.creatorId,
+                deletionWarningSentAt: IsNull(),
+                cancelledAt: IsNull()
+            },
             { deletionWarningSentAt: sentAt }
         );
 

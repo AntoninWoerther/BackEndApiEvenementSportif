@@ -4,19 +4,28 @@ import type { UpdateEvenementDetailsInput } from '../inputs/update-evenement-det
 
 export type UpdateEvenementScope = 'own' | 'others' | 'any';
 
-export type UpdateEvenementDateResult = 'updated' | 'unchanged' | 'evenement-not-found' | 'forbidden';
+export type UpdateEvenementDateResult = 'updated' | 'unchanged' | 'evenement-not-found' | 'forbidden' | 'already-cancelled';
 
 export type UpdateEvenementDetailsResult =
     | { status: 'updated'; evenement: Evenement }
     | { status: 'evenement-not-found' }
     | { status: 'forbidden' }
-    | { status: 'capacity-too-low' };
+    | { status: 'capacity-too-low' }
+    | { status: 'already-cancelled' };
+
+export type DeleteEvenementResult = 'deleted' | 'evenement-not-found' | 'forbidden' | 'already-cancelled';
+
+export type CancelEvenementResult =
+    | { status: 'cancelled'; evenement: Evenement; participantEmails: string[] }
+    | { status: 'evenement-not-found' }
+    | { status: 'forbidden' }
+    | { status: 'already-cancelled' };
 
 export interface EvenementGateway {
     listWithAvailability(): Promise<EvenementWithAvailability[]>;
     findWithAvailabilityById(evenementId: number): Promise<EvenementWithAvailability | null>;
     create(input: CreateEvenementInput, creatorId: number): Promise<Evenement | null>;
-    deleteOwnedBy(evenementId: number, creatorId: number): Promise<boolean>;
+    deleteOwnedBy(evenementId: number, creatorId: number): Promise<DeleteEvenementResult>;
     updateDate(
         evenementId: number,
         userId: number,
@@ -29,5 +38,5 @@ export interface EvenementGateway {
         input: UpdateEvenementDetailsInput,
         scope: UpdateEvenementScope
     ): Promise<UpdateEvenementDetailsResult>;
-    existsById(evenementId: number): Promise<boolean>;
+    cancel(evenementId: number, userId: number, reason: string, canCancelOther: boolean): Promise<CancelEvenementResult>;
 }

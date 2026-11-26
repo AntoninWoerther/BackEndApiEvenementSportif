@@ -7,6 +7,7 @@ import { makeDeleteEvenementUseCase } from './profile/evenement/app/usecases/del
 import { makeGetEvenementByIdUseCase } from './profile/evenement/app/usecases/get-evenement-by-id.usecase';
 import { makeGetEvenementsUseCase } from './profile/evenement/app/usecases/get-evenements.usecase';
 import { makeUpdateEvenementDateUseCase } from './profile/evenement/app/usecases/update-evenement-date.usecase';
+import { makeUpdateEvenementDetailsUseCase } from './profile/evenement/app/usecases/update-evenement-details.usecase';
 import { typeormEvenementCleanupGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement-cleanup.gateway';
 import { typeormEvenementGateway } from './profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway';
 import { startEvenementCleanupScheduler } from './profile/evenement/infra/scheduling/evenement-cleanup.scheduler';
@@ -54,6 +55,7 @@ const deleteEvenement = makeDeleteEvenementUseCase(typeormEvenementGateway);
 const getEvenementById = makeGetEvenementByIdUseCase(typeormEvenementGateway);
 const getEvenements = makeGetEvenementsUseCase(typeormEvenementGateway);
 const updateEvenementDate = makeUpdateEvenementDateUseCase(typeormEvenementGateway);
+const updateEvenementDetails = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway);
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
 const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway);
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
@@ -78,6 +80,7 @@ app.use('/evenements', createEvenementRouter({
   getEvenementById,
   getEvenements,
   updateEvenementDate,
+  updateEvenementDetails,
   authMiddleware,
   loadUserPermissions
 }));

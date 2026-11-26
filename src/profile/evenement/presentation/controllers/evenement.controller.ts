@@ -9,9 +9,11 @@ import type { DeleteEvenementUseCase } from '../../app/usecases/delete-evenement
 import type { GetEvenementByIdUseCase } from '../../app/usecases/get-evenement-by-id.usecase';
 import type { GetEvenementsUseCase } from '../../app/usecases/get-evenements.usecase';
 import type { UpdateEvenementDateUseCase } from '../../app/usecases/update-evenement-date.usecase';
+import type { UpdateEvenementDetailsUseCase } from '../../app/usecases/update-evenement-details.usecase';
 import { parseEvenementId } from '../routes/parse-evenement-id';
 import { CreateEvenementDto } from '../dtos/create-evenement.dto';
 import { EvenementDateDto } from '../dtos/evenement-date.dto';
+import { UpdateEvenementDetailsDto } from '../dtos/update-evenement-details.dto';
 import { presentEvenement, presentEvenementWithAvailability } from '../presenters/evenement.presenter';
 
 const getAuthenticatedUserId = (req: Request): number => {
@@ -69,6 +71,24 @@ export const deleteEvenementController = (deleteEvenement: DeleteEvenementUseCas
 
         await deleteEvenement(id, userId);
         return res.status(200).json({ message: 'Événement supprimé avec succès.' });
+    };
+};
+
+export const updateEvenementDetailsController = (updateEvenementDetails: UpdateEvenementDetailsUseCase) => {
+    return async (req: Request<{ id: string }>, res: Response) => {
+        const userId = getAuthenticatedUserId(req);
+        const id = parseEvenementId(req.params.id);
+        const input = await validateEvenementBody(UpdateEvenementDetailsDto, req.body);
+
+        if (input.description === undefined && input.location === undefined && input.capacity === undefined) {
+            throw new ValidationFailedError([{
+                property: 'body',
+                constraints: { emptyPatch: 'Renseignez une description, un lieu ou une capacité.' }
+            }]);
+        }
+
+        const evenement = await updateEvenementDetails(id, userId, input, req.user?.permissions ?? 0);
+        return res.status(200).json(presentEvenement(evenement));
     };
 };
 

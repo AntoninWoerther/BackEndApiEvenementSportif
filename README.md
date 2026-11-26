@@ -95,6 +95,32 @@ Si tu veux tester les actions réservées au superadmin, récupère `user.id` da
 npm run grant:superuser -- 1
 ```
 
+## 6. Permissions et valeurs
+
+Un nouveau compte reçoit les permissions `1`, `2` et `4`, soit la valeur totale `7`. Les routes du tableau utilisent l’adresse `http://localhost:3000` et l’**access token** du compte qui effectue l’action.
+
+| Valeur | Permission | Utilité | Route à tester |
+| --- | --- | --- | --- |
+| `1` | `CREATE_EVENT` | Créer un événement. | `POST /evenements` |
+| `2` | `UPDATE_EVENT` | Modifier la date, la description, le lieu ou la capacité de ses propres événements. | `PATCH /evenements/<id>` ou `PATCH /evenements/<id>/date` |
+| `4` | `UPDATE_ACCOUNT` | Changer son propre mot de passe en fournissant `oldPassword` et `newPassword`. | `PATCH /me/password` |
+| `8` | `DELETE_ACCOUNT` | Supprimer le compte d’un autre utilisateur. Les comptes superadmins sont protégés. | `DELETE /<idUtilisateur>` |
+| `16` | `SUPERUSER` | Accéder à tous les droits du tableau, gérer les permissions des autres comptes, consulter leurs profils et exporter le journal des changements de droits. | `PATCH /users/<id>/permissions`, `GET /`, `GET /<id>` ou `GET /users/permissions/audit/export` |
+| `32` | `UPDATE_OTHER_EVENTS` | Modifier la date, la description, le lieu ou la capacité des événements créés par d’autres utilisateurs. | `PATCH /evenements/<id>` ou `PATCH /evenements/<id>/date` |
+| `64` | `REMOVE_EVENT_PARTICIPANTS` | Retirer un participant d’un événement, quel que soit son créateur. | `DELETE /evenements/<idEvenement>/participants/<idUtilisateur>` |
+| `128` | `SUSPEND_ACCOUNT` | Suspendre un compte existant et révoquer ses sessions actives. Réservé aux superadmins. | `PATCH /users/<id>/suspend` |
+| `256` | `REACTIVATE_ACCOUNT` | Réactiver un compte suspendu. Réservé aux superadmins. | `PATCH /users/<id>/reactivate` |
+| `512` | `VIEW_OTHER_EVENT_PARTICIPANTS` | Consulter le nom et le prénom des inscrits aux événements des autres. Le créateur peut déjà consulter les inscrits à son propre événement. | `GET /evenements/<id>/participants` |
+
+### Attribuer et retirer un droit dans Bruno
+
+Connecte-toi avec deux comptes de test distincts, un superadmin et un utilisateur ordinaire. Récupère `user.id` dans la réponse de connexion du compte ordinaire. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64` et `512`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour créer le compte de test superadmin, utilise la commande `grant:superuser` indiquée à l’étape précédente.
+
+1. Avec le token du compte ordinaire, envoie `GET /evenements/<id>/participants` sur un événement créé par un autre compte. Tu dois recevoir `403` avec le code `AUTH_006`.
+2. Avec le token du superadmin, envoie `PATCH /users/<idUtilisateur>/permissions` avec le corps JSON `{"permissions": 512}`. Pour un compte ayant les droits par défaut, la réponse `200` contient `permissions: 519` car le droit `512` s’ajoute aux droits existants.
+3. Rejoue la première requête avec le token du compte ordinaire. Elle doit maintenant renvoyer `200`.
+4. Avec le token du superadmin, envoie `DELETE /users/<idUtilisateur>/permissions/512`. La réponse `200` contient de nouveau `permissions: 7` si le compte avait ses droits par défaut au départ. Le compte ordinaire reçoit à nouveau `403` sur la première requête.
+
 ## Lancer les tests automatisés
 
 ```bash

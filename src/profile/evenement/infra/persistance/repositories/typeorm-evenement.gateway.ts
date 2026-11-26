@@ -2,7 +2,7 @@ import { IsNull, Not, Or, QueryFailedError } from 'typeorm';
 import type { SelectQueryBuilder } from 'typeorm';
 import { db } from '../../../../../core/dataBase.config';
 import { ReservationEntity } from '../../../../../reservation/infra/persistance/entities/reservation.entity';
-import type { EvenementGateway } from '../../../app/interfaces/evenement.gateway';
+import type { EvenementGateway, UpdateEvenementDetailsResult, UpdateEvenementScope } from '../../../app/interfaces/evenement.gateway';
 import type { EvenementWithAvailability } from '../../../domain/evenement';
 import { EvenementEntity } from '../entities/evenement.entity';
 
@@ -32,6 +32,11 @@ const readEvenementsWithAvailability = async (
         ...evenement,
         remainingPlaces: Math.max(0, evenement.capacity - Number(raw[index].reservationCount))
     }));
+};
+
+const canUpdateEvenement = (scope: UpdateEvenementScope, creatorId: number | null, userId: number): boolean => {
+    const isOwner = creatorId === userId;
+    return scope === 'any' || (scope === 'own' ? isOwner : !isOwner);
 };
 
 export const typeormEvenementGateway: EvenementGateway = {
@@ -92,10 +97,38 @@ export const typeormEvenementGateway: EvenementGateway = {
             return 'evenement-not-found';
         }
 
-        const isOwner = evenement.creatorId === userId;
-        const canUpdate = scope === 'any' || (scope === 'own' ? isOwner : !isOwner);
+        return canUpdateEvenement(scope, evenement.creatorId, userId) ? 'unchanged' : 'forbidden';
+    },
+    updateDetails(evenementId, userId, input, scope) {
+        return db.transaction<UpdateEvenementDetailsResult>('READ COMMITTED', async manager => {
+            const events = manager.getRepository(EvenementEntity);
+            // Reservation creation takes the same lock before checking capacity.
+            const evenement = await events.findOne({
+                where: { id: evenementId },
+                lock: { mode: 'pessimistic_write' }
+            });
+            if (!evenement) {
+                return { status: 'evenement-not-found' };
+            }
+            if (!canUpdateEvenement(scope, evenement.creatorId, userId)) {
+                return { status: 'forbidden' };
+            }
 
-        return canUpdate ? 'unchanged' : 'forbidden';
+            if (input.capacity !== undefined) {
+                const reservations = await manager.getRepository(ReservationEntity).countBy({ evenementId });
+                if (input.capacity < reservations) {
+                    return { status: 'capacity-too-low' };
+                }
+            }
+
+            const details = {
+                description: input.description ?? evenement.description,
+                location: input.location ?? evenement.location,
+                capacity: input.capacity ?? evenement.capacity
+            };
+            await events.update(evenementId, details);
+            return { status: 'updated', evenement: { ...evenement, ...details } };
+        });
     },
     existsById(evenementId) {
         return db.getRepository(EvenementEntity).existsBy({ id: evenementId });

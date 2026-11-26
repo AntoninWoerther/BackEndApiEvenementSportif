@@ -247,7 +247,7 @@ Crée un événement à une place et réserve cette place avec un premier compte
 3. Avec le token du créateur ou de la personne qui a reçu le droit `2048`, envoie `PATCH /evenements/<id>/waitlist/<idEntree>/move-up` en utilisant l’`id` de la deuxième entrée. La réponse `200` affiche sa nouvelle position `1`.
 4. Avec le token d’une personne en file, envoie `DELETE /evenements/<id>/waitlist/me`. La réponse `200` confirme son retrait.
 
-Une montée change uniquement l’ordre de la file. La réservation reste une action distincte via `POST /evenements/<id>/reservations`.
+Une montée change l’ordre dans lequel les places sont attribuées. Pour tester l’inscription automatique, garde au moins une personne en file et libère la réservation initiale avec `DELETE /evenements/<id>/reservations/me`. Tu peux aussi augmenter la capacité avec `PATCH /evenements/<id>` et un corps comme `{"capacity": 3}`. Les places disponibles sont attribuées dans l’ordre de la file aux comptes actifs. Chaque personne promue apparaît dans `GET /me/reservations` et reçoit un mail simulé dans le terminal de l’API avec la description et la date de l’événement.
 
 ## Lancer les tests automatisés
 

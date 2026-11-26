@@ -1,7 +1,11 @@
 import { QueryFailedError, Raw } from 'typeorm';
 import { InsufficientPermissionsError } from '../../../../../auth/domain/errors/insufficient-permissions.error';
 import { db } from '../../../../../core/dataBase.config';
-import type { UserGateway } from '../../../app/interfaces/user.gateway';
+import type { WaitlistPromotedEvent } from '../../../../../reservation/domain/events/waitlist-promoted.event';
+import { ReservationEntity } from '../../../../../reservation/infra/persistance/entities/reservation.entity';
+import { promoteWaitlistForLockedEvent } from '../../../../../reservation/infra/persistance/repositories/waitlist-promotion';
+import { EvenementEntity } from '../../../../evenement/infra/persistance/entities/evenement.entity';
+import type { DeletedUser, UserGateway } from '../../../app/interfaces/user.gateway';
 import { UserEmailAlreadyExists } from '../../../domain/errors/user-email-already-exists.error';
 import { isSuperuser, USER_PERMISSIONS } from '../../../domain/permissions/user.permissions';
 import { UserEntity } from '../entities/user.entity';
@@ -37,22 +41,49 @@ export const typeormUserGateway: UserGateway = {
             select: { ...profileFields, email: true, hashedPassword: true, suspendedAt: true }
         });
     },
-    async deleteById(id) {
-        const repository = db.getRepository(UserEntity);
-        const user = await repository.findOne({ where: { id }, select: { email: true, permissions: true } });
-        if (!user) {
-            return null;
-        }
-        if (isSuperuser(user.permissions)) {
-            throw new InsufficientPermissionsError('Un compte super utilisateur est protégé contre la suppression via l’API.');
-        }
+    deleteById(id) {
+        return db.transaction<DeletedUser | null>('READ COMMITTED', async manager => {
+            const users = manager.getRepository(UserEntity);
+            const user = await users.findOne({
+                where: { id },
+                select: { id: true, email: true, permissions: true },
+                lock: { mode: 'pessimistic_write' }
+            });
+            if (!user) {
+                return null;
+            }
+            if (isSuperuser(user.permissions)) {
+                throw new InsufficientPermissionsError('Un compte super utilisateur est protégé contre la suppression via l’API.');
+            }
 
-        const result = await repository.delete({
-            id,
-            permissions: Raw(alias => `(${alias} & :superuserPermission) = 0`, {
-                superuserPermission: USER_PERMISSIONS.SUPERUSER
-            })
+            const bookings = await manager.getRepository(ReservationEntity).find({
+                where: { userId: id },
+                select: { evenementId: true },
+                order: { evenementId: 'ASC' }
+            });
+            const result = await users.delete({
+                id,
+                permissions: Raw(alias => `(${alias} & :superuserPermission) = 0`, {
+                    superuserPermission: USER_PERMISSIONS.SUPERUSER
+                })
+            });
+            if (result.affected !== 1) {
+                return null;
+            }
+
+            const promotions: WaitlistPromotedEvent[] = [];
+            const events = manager.getRepository(EvenementEntity);
+            for (const { evenementId } of bookings) {
+                const event = await events.findOne({ where: { id: evenementId }, lock: { mode: 'pessimistic_write' } });
+                if (!event) {
+                    continue;
+                }
+                const promotion = await promoteWaitlistForLockedEvent(manager, event);
+                if (promotion) {
+                    promotions.push(promotion);
+                }
+            }
+            return { email: user.email, promotions };
         });
-        return result.affected === 1 ? user.email : null;
     }
 };

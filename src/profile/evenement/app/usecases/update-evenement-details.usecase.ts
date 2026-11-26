@@ -1,3 +1,4 @@
+import { publishWaitlistPromotion } from '../../../../reservation/app/publish-waitlist-promotion';
 import { EvenementCapacityTooLowError } from '../../domain/errors/evenement-capacity-too-low.error';
 import { EvenementDetailsUpdateForbiddenError } from '../../domain/errors/evenement-details-update-forbidden.error';
 import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
@@ -23,6 +24,7 @@ export const makeUpdateEvenementDetailsUseCase = (
 
         switch (result.status) {
             case 'updated':
+                publishWaitlistPromotion(result.promotion);
                 return result.evenement;
             case 'evenement-not-found':
                 throw new EvenementNotFoundError();

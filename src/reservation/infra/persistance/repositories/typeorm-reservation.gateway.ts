@@ -3,10 +3,11 @@ import type { Repository } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
 import { formatParisDay } from '../../../../core/date/paris-day';
 import { EvenementEntity } from '../../../../profile/evenement/infra/persistance/entities/evenement.entity';
-import type { CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
+import type { CancelReservationResult, CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
 import type { EventParticipant } from '../../../domain/event-participant';
 import { ReservationEntity } from '../entities/reservation.entity';
 import { WaitlistEntryEntity } from '../entities/waitlist-entry.entity';
+import { promoteWaitlistForLockedEvent } from './waitlist-promotion';
 
 export const findReservationParticipantEmails = async (
     reservations: Repository<ReservationEntity>,
@@ -93,14 +94,24 @@ export const typeormReservationGateway: ReservationGateway = {
             throw error;
         }
     },
-    async cancel({ evenementId, userId }) {
-        const result = await db.getRepository(ReservationEntity).delete({ evenementId, userId });
-        if (result.affected === 1) {
-            return 'cancelled';
-        }
+    cancel({ evenementId, userId }) {
+        return db.transaction<CancelReservationResult>('READ COMMITTED', async manager => {
+            const event = await manager.getRepository(EvenementEntity).findOne({
+                where: { id: evenementId },
+                select: { id: true, description: true, capacity: true, date: true, cancelledAt: true },
+                lock: { mode: 'pessimistic_write' }
+            });
+            if (!event) {
+                return { status: 'evenement-not-found' };
+            }
 
-        const evenementExists = await db.getRepository(EvenementEntity).existsBy({ id: evenementId });
-        return evenementExists ? 'reservation-not-found' : 'evenement-not-found';
+            const result = await manager.getRepository(ReservationEntity).delete({ evenementId, userId });
+            if (result.affected !== 1) {
+                return { status: 'reservation-not-found' };
+            }
+
+            return { status: 'cancelled', promotion: await promoteWaitlistForLockedEvent(manager, event) };
+        });
     },
     findEvenementOwner(evenementId) {
         return db.getRepository(EvenementEntity).findOne({

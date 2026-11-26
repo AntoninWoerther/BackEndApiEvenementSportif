@@ -2,6 +2,7 @@ import { IsNull, Not, Or, QueryFailedError } from 'typeorm';
 import type { SelectQueryBuilder } from 'typeorm';
 import { db } from '../../../../../core/dataBase.config';
 import { ReservationEntity } from '../../../../../reservation/infra/persistance/entities/reservation.entity';
+import { promoteWaitlistForLockedEvent } from '../../../../../reservation/infra/persistance/repositories/waitlist-promotion';
 import { findReservationParticipantEmails } from '../../../../../reservation/infra/persistance/repositories/typeorm-reservation.gateway';
 import type { CancelEvenementResult, EvenementGateway, UpdateEvenementDetailsResult, UpdateEvenementScope } from '../../../app/interfaces/evenement.gateway';
 import type { EvenementWithAvailability } from '../../../domain/evenement';
@@ -139,11 +140,11 @@ export const typeormEvenementGateway: EvenementGateway = {
                 return { status: 'already-cancelled' };
             }
 
-            if (input.capacity !== undefined) {
-                const reservations = await manager.getRepository(ReservationEntity).countBy({ evenementId });
-                if (input.capacity < reservations) {
-                    return { status: 'capacity-too-low' };
-                }
+            const occupiedPlaces = input.capacity === undefined
+                ? undefined
+                : await manager.getRepository(ReservationEntity).countBy({ evenementId });
+            if (input.capacity !== undefined && occupiedPlaces !== undefined && input.capacity < occupiedPlaces) {
+                return { status: 'capacity-too-low' };
             }
 
             const details = {
@@ -152,7 +153,11 @@ export const typeormEvenementGateway: EvenementGateway = {
                 capacity: input.capacity ?? evenement.capacity
             };
             await events.update(evenementId, details);
-            return { status: 'updated', evenement: { ...evenement, ...details } };
+            const updated = { ...evenement, ...details };
+            const promotion = updated.capacity > evenement.capacity
+                ? await promoteWaitlistForLockedEvent(manager, updated, occupiedPlaces)
+                : null;
+            return { status: 'updated', evenement: updated, promotion };
         });
     },
     cancel(evenementId, userId, reason, canCancelOther) {

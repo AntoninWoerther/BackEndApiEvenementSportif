@@ -1,5 +1,6 @@
 import { InsufficientPermissionsError } from '../../../../auth/domain/errors/insufficient-permissions.error';
 import { eventEmitter } from '../../../../core/bus/event.emiter';
+import { publishWaitlistPromotion } from '../../../../reservation/app/publish-waitlist-promotion';
 import { UserNotFound } from '../../domain/errors/user-not-found.error';
 import { USER_EVENTS } from '../../domain/events/user.events';
 import { hasUserPermission, USER_PERMISSIONS } from '../../domain/permissions/user.permissions';
@@ -13,11 +14,14 @@ export const makeDeleteUserUseCase = (users: Pick<UserGateway, 'deleteById'>): D
             throw new InsufficientPermissionsError();
         }
 
-        const email = await users.deleteById(id);
-        if (email === null) {
+        const deleted = await users.deleteById(id);
+        if (!deleted) {
             throw new UserNotFound();
         }
 
-        eventEmitter.emit(USER_EVENTS.USER_DELETED, email);
+        for (const promotion of deleted.promotions) {
+            publishWaitlistPromotion(promotion);
+        }
+        eventEmitter.emit(USER_EVENTS.USER_DELETED, deleted.email);
     };
 };

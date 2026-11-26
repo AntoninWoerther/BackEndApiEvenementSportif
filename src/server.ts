@@ -30,6 +30,7 @@ import { makeMoveWaitlistEntryUpUseCase } from './reservation/app/usecases/move-
 import { makeRemoveEventParticipantUseCase } from './reservation/app/usecases/remove-event-participant.usecase';
 import { typeormReservationGateway } from './reservation/infra/persistance/repositories/typeorm-reservation.gateway';
 import { typeormWaitlistGateway } from './reservation/infra/persistance/repositories/typeorm-waitlist.gateway';
+import { registerWaitlistPromotionEmailListener } from './reservation/infra/mailer/waitlist-promotion-email.listener';
 import { createReservationRouter } from './reservation/presentation/routes/reservation.route';
 import { createChangePasswordUseCase } from './profile/user/app/usecases/change-password.usecase';
 import { makeChangeUserAccountStatusUseCase } from './profile/user/app/usecases/change-user-account-status.usecase';
@@ -154,6 +155,7 @@ const startServer = async (): Promise<void> => {
   registerEvenementDateEmailListener(typeormReservationGateway);
   registerEvenementDeletionWarningEmailListener();
   registerEvenementReminderEmailListener();
+  registerWaitlistPromotionEmailListener();
   startHourlyJob(makeSendEvenementRemindersUseCase(typeormEvenementReminderGateway), '[MAIL] Les rappels d’événements ont échoué.');
   startEvenementCleanupScheduler(makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway));
   startRefreshTokenCleanupScheduler(makeCleanupRefreshTokensUseCase(typeormRefreshTokenGateway));

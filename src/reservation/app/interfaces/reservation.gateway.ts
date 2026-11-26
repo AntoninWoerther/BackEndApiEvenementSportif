@@ -1,4 +1,5 @@
 import type { EventParticipant } from '../../domain/event-participant';
+import type { WaitlistPromotedEvent } from '../../domain/events/waitlist-promoted.event';
 import type { Reservation, ReservationWithEvenement } from '../../domain/reservation';
 import type { ReservationParticipantInput } from '../inputs/reservation-participant.input';
 
@@ -11,7 +12,10 @@ export type CreateReservationResult =
     | { status: 'evenement-cancelled' }
     | { status: 'user-not-found' };
 
-export type CancelReservationResult = 'cancelled' | 'evenement-not-found' | 'reservation-not-found';
+export type CancelReservationResult =
+    | { status: 'cancelled'; promotion: WaitlistPromotedEvent | null }
+    | { status: 'evenement-not-found' }
+    | { status: 'reservation-not-found' };
 
 export interface ReservationGateway {
     listByUserId(userId: number): Promise<ReservationWithEvenement[]>;

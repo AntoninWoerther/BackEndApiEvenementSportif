@@ -1,3 +1,4 @@
+import type { WaitlistPromotedEvent } from '../../../../reservation/domain/events/waitlist-promoted.event';
 import type { UserProfile } from '../../domain/user-profile';
 import type { CreateUserInput } from '../inputs/create-user.input';
 
@@ -9,10 +10,15 @@ export interface UserCredentials extends UserProfile {
     suspendedAt: Date | null;
 }
 
+export interface DeletedUser {
+    email: string;
+    promotions: WaitlistPromotedEvent[];
+}
+
 export interface UserGateway {
     create(input: NewUserRecord): Promise<{ email: string }>;
     list(): Promise<UserProfile[]>;
     findById(id: number): Promise<UserProfile | null>;
     findByEmail(email: string): Promise<UserCredentials | null>;
-    deleteById(id: number): Promise<string | null>;
+    deleteById(id: number): Promise<DeletedUser | null>;
 }

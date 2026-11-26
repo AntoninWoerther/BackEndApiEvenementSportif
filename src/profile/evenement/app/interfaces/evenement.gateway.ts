@@ -1,3 +1,4 @@
+import type { WaitlistPromotedEvent } from '../../../../reservation/domain/events/waitlist-promoted.event';
 import type { Evenement, EvenementWithAvailability } from '../../domain/evenement';
 import type { CreateEvenementInput } from '../inputs/create-evenement.input';
 import type { UpdateEvenementDetailsInput } from '../inputs/update-evenement-details.input';
@@ -7,7 +8,7 @@ export type UpdateEvenementScope = 'own' | 'others' | 'any';
 export type UpdateEvenementDateResult = 'updated' | 'unchanged' | 'evenement-not-found' | 'forbidden' | 'already-cancelled';
 
 export type UpdateEvenementDetailsResult =
-    | { status: 'updated'; evenement: Evenement }
+    | { status: 'updated'; evenement: Evenement; promotion: WaitlistPromotedEvent | null }
     | { status: 'evenement-not-found' }
     | { status: 'forbidden' }
     | { status: 'capacity-too-low' }

@@ -8,7 +8,8 @@
     "start": "node dist/server.js",
     "grant:superuser": "tsx src/core/database/seeders/grant-superuser.ts",
     "dev": "nodemon --watch src --ext ts,json --exec tsx src/server.ts",
-    "build": "tsup src/server.ts --format esm,cjs --dts"
+    "build": "tsup src/server.ts --format esm,cjs --dts",
+    "test": "node --import tsx --test --test-isolation=none tests/*.test.mjs"
   },
   "keywords": [],
   "author": "",

@@ -2,9 +2,9 @@ import { AppError } from '../../../core/http/error.response';
 
 
 export class InvalidTokenError extends AppError {
-    constructor() {
+    constructor(message = 'Token invalide.') {
         super(
-            'Token invalide.',
+            message,
             401,
             'AUTH_002'
         );

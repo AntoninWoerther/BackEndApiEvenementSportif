@@ -15,6 +15,7 @@ import { registerEvenementDeletionWarningEmailListener } from './profile/eveneme
 import { createEvenementRouter } from './profile/evenement/presentation/routes/evenement.route';
 import { makeCancelReservationUseCase } from './reservation/app/usecases/cancel-reservation.usecase';
 import { makeCreateReservationUseCase } from './reservation/app/usecases/create-reservation.usecase';
+import { makeGetEventParticipantsUseCase } from './reservation/app/usecases/get-event-participants.usecase';
 import { makeGetMyReservationsUseCase } from './reservation/app/usecases/get-my-reservations.usecase';
 import { makeRemoveEventParticipantUseCase } from './reservation/app/usecases/remove-event-participant.usecase';
 import { typeormReservationGateway } from './reservation/infra/persistance/repositories/typeorm-reservation.gateway';
@@ -56,6 +57,7 @@ const updateEvenementDate = makeUpdateEvenementDateUseCase(typeormEvenementGatew
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
 const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway);
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
+const getEventParticipants = makeGetEventParticipantsUseCase(typeormReservationGateway);
 const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
 const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway);
 const suspendUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'SUSPEND');
@@ -83,6 +85,7 @@ app.use('/', createReservationRouter({
   createReservation,
   cancelReservation,
   getMyReservations,
+  getEventParticipants,
   removeEventParticipant,
   authMiddleware,
   loadUserPermissions

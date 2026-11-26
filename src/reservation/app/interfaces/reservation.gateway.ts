@@ -1,3 +1,4 @@
+import type { EventParticipant } from '../../domain/event-participant';
 import type { Reservation, ReservationWithEvenement } from '../../domain/reservation';
 import type { ReservationParticipantInput } from '../inputs/reservation-participant.input';
 
@@ -15,5 +16,7 @@ export interface ReservationGateway {
     listByUserId(userId: number): Promise<ReservationWithEvenement[]>;
     create(input: ReservationParticipantInput): Promise<CreateReservationResult>;
     cancel(input: ReservationParticipantInput): Promise<CancelReservationResult>;
+    findEvenementOwner(evenementId: number): Promise<{ creatorId: number | null } | null>;
+    listEventParticipants(evenementId: number): Promise<EventParticipant[]>;
     findParticipantEmails(evenementId: number): Promise<string[]>;
 }

@@ -5,6 +5,7 @@ import { parseUserId } from '../../../profile/user/presentation/routes/parse-use
 import type { ReservationParticipantInput } from '../../app/inputs/reservation-participant.input';
 import type { CancelReservationUseCase } from '../../app/usecases/cancel-reservation.usecase';
 import type { CreateReservationUseCase } from '../../app/usecases/create-reservation.usecase';
+import type { GetEventParticipantsUseCase } from '../../app/usecases/get-event-participants.usecase';
 import type { GetMyReservationsUseCase } from '../../app/usecases/get-my-reservations.usecase';
 import type { RemoveEventParticipantUseCase } from '../../app/usecases/remove-event-participant.usecase';
 import { presentReservation, presentReservationWithEvenement } from '../presenters/reservation.presenter';
@@ -44,6 +45,20 @@ export const cancelReservationController = (cancelReservation: CancelReservation
     return async (req: ReservationRequest, res: Response) => {
         await cancelReservation(getReservationParticipant(req));
         return res.status(200).json({ message: 'Participation annulée avec succès.' });
+    };
+};
+
+export const getEventParticipantsController = (getEventParticipants: GetEventParticipantsUseCase) => {
+    return async (req: ReservationRequest, res: Response) => {
+        const id = getAuthenticatedUserId(req);
+        const permissions = req.user?.permissions;
+        if (permissions === undefined) {
+            throw new InvalidTokenError();
+        }
+
+        const evenementId = parseEvenementId(req.params.evenementId);
+        const participants = await getEventParticipants(evenementId, { id, permissions });
+        return res.status(200).set('Cache-Control', 'no-store').json(participants);
     };
 };
 

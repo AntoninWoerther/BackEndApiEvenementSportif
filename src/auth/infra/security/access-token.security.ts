@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
+import { InvalidTokenError } from '../../domain/errors/invalid-token.error';
 
 export const getJwtSecret = (): string => {
     const secret = process.env.JWT_SECRET;
@@ -17,5 +18,13 @@ export const signAccessToken = (userId: number, secret: string, sessionId: strin
 };
 
 export const verifyAccessToken = (token: string) => {
-    return jwt.verify(token, getJwtSecret());
+    const secret = getJwtSecret();
+    try {
+        return jwt.verify(token, secret);
+    } catch (error) {
+        if (error instanceof jwt.JsonWebTokenError) {
+            throw new InvalidTokenError();
+        }
+        throw error;
+    }
 };

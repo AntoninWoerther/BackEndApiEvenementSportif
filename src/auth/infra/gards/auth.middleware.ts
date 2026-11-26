@@ -4,10 +4,10 @@ import { InvalidTokenError } from '../../domain/errors/invalid-token.error';
 import { verifyAccessToken } from '../security/access-token.security';
 
 export const makeAuthMiddleware = (gateway: Pick<RefreshTokenGateway, 'hasActiveSession'>): RequestHandler => {
-    return async (req, res, next) => {
+    return async (req, _res, next) => {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ message: 'Token manquant.' });
+            throw new InvalidTokenError('Token manquant.');
         }
 
         const token = authHeader.split(' ')[1];
@@ -15,12 +15,7 @@ export const makeAuthMiddleware = (gateway: Pick<RefreshTokenGateway, 'hasActive
             throw new InvalidTokenError();
         }
 
-        let decoded: ReturnType<typeof verifyAccessToken>;
-        try {
-            decoded = verifyAccessToken(token);
-        } catch {
-            throw new InvalidTokenError();
-        }
+        const decoded = verifyAccessToken(token);
 
         if (typeof decoded === 'string' || typeof decoded.sid !== 'string' || !decoded.sid) {
             throw new InvalidTokenError();

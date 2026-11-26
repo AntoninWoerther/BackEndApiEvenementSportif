@@ -14,7 +14,20 @@ npm ci
 
 ## 2. Préparer MySQL
 
-Démarre ton serveur MySQL sur le port `3306`. Pour ouvrir une session SQL depuis le terminal, utilise `mysql -u root -p` si ton compte `root` a un mot de passe, ou `mysql -u root` s’il est vide. Si ton installation utilise un autre compte d’administration, connecte-toi avec ce compte. Exécute ensuite cette commande dans le client MySQL ou dans ton interface d’administration.
+### Avec WampServer sous Windows
+
+1. Lance WampServer et vérifie que le service **MySQL** est démarré depuis l’icône WampServer dans la zone de notification de Windows. [Guide d’installation de WampServer](https://wampserver.aviatechno.net/index.php?affiche=install&lang=en)
+2. Ouvre **phpMyAdmin** depuis le menu WampServer ou à l’adresse `http://localhost/phpmyadmin`. Si phpMyAdmin propose plusieurs serveurs, sélectionne **MySQL**. Connecte-toi avec ton compte MySQL. Sur une installation WampServer par défaut, essaie `root` avec le mot de passe vide.
+3. Dans phpMyAdmin, ouvre l’onglet **SQL**, exécute la commande de création de base indiquée ci-dessous, puis vérifie que `evenementsportif` apparaît dans la liste des bases.
+4. Si tu dois vérifier le port du serveur sélectionné, exécute `SELECT @@port AS port_mysql;` dans l’onglet **SQL**. Renseigne ce port dans `DB_PORT` à l’étape 3. Pour une API lancée sur le même Windows, utilise `DB_HOST=localhost` et les identifiants MySQL utilisés dans phpMyAdmin. Laisse WampServer tourner pendant les tests de l’API.
+
+### Avec un autre serveur MySQL
+
+Démarre le serveur MySQL. Pour ouvrir une session SQL depuis le terminal, utilise `mysql -u root -p` si ton compte `root` a un mot de passe, ou `mysql -u root` s’il est vide. Si ton installation utilise un autre compte d’administration, connecte-toi avec ce compte.
+
+### Créer la base vide
+
+Exécute cette commande dans phpMyAdmin ou dans ton client MySQL.
 
 ```sql
 CREATE DATABASE IF NOT EXISTS evenementsportif CHARACTER SET utf8mb4;
@@ -22,7 +35,7 @@ CREATE DATABASE IF NOT EXISTS evenementsportif CHARACTER SET utf8mb4;
 
 Si tu choisis un autre nom de base, utilise ce nom dans la commande SQL et dans `DB_NAME` à l’étape suivante.
 
-TypeORM crée les tables au premier démarrage grâce à `synchronize: true`. Le compte utilisé par l’API doit donc pouvoir créer et modifier les tables de cette base.
+TypeORM crée les tables au premier démarrage de l’API grâce à `synchronize: true`. Le compte utilisé par l’API doit donc pouvoir créer et modifier les tables de cette base. Si tu utilises WampServer, actualise l’affichage de la base dans phpMyAdmin après `npm run dev` pour voir les tables créées.
 
 ## 3. Configurer MySQL et les jetons dans `.env`
 
@@ -112,7 +125,7 @@ Tu dois recevoir un statut `200` avec un tableau JSON. Sur une base neuve, le ta
 
 ### Rappel pour renouveler un jeton expiré
 
-Par défaut, l’`accessToken` expire après **5 minutes**. Si une route protégée renvoie `401`, vérifie d’abord que son Bearer Token contient l’`accessToken` du bon compte. Si ce jeton a expiré, suis ces étapes dans Postman ou Bruno.
+Par défaut, l’`accessToken` expire après **5 minutes**. Chaque `refreshToken` est valable **7 jours à partir de son émission**, à la connexion ou lors d’un renouvellement. Si une route protégée renvoie `401`, vérifie d’abord que son Bearer Token contient l’`accessToken` du bon compte. Si ce jeton a expiré, suis ces étapes dans Postman ou Bruno.
 
 1. Envoie `POST http://localhost:3000/auth/refresh`, sans en-tête `Authorization`. Dans le corps JSON, colle le dernier **`refreshToken`** reçu à la connexion ou au précédent renouvellement.
 
@@ -221,12 +234,14 @@ Un nouveau compte reçoit les permissions `1`, `2` et `4`, soit la valeur totale
 
 ### Attribuer et retirer un droit dans Postman ou Bruno
 
-Utilise un superadmin créé à l’étape 2 du parcours 3 et un compte ordinaire distinct. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512`, `1024` et `2048`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour les tests ci-dessous, récupère `user.id` dans la réponse de connexion du compte ordinaire.
+Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512`, `1024` et `2048`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin.
 
-1. Avec le token du compte ordinaire, envoie `GET /evenements/<id>/participants` sur un événement créé par un autre compte. Tu dois recevoir `403` avec le code `AUTH_006`.
-2. Avec le token du superadmin, envoie `PATCH /users/<idUtilisateur>/permissions` avec le corps JSON `{"permissions": 512}`. Pour un compte ayant les droits par défaut, la réponse `200` contient `permissions: 519` car le droit `512` s’ajoute aux droits existants.
-3. Rejoue la première requête avec le token du compte ordinaire. Elle doit maintenant renvoyer `200`.
-4. Avec le token du superadmin, envoie `DELETE /users/<idUtilisateur>/permissions/512`. La réponse `200` contient de nouveau `permissions: 7` si le compte avait ses droits par défaut au départ. Le compte ordinaire reçoit à nouveau `403` sur la première requête.
+Reprends Alex et Morgan après le parcours 3. Reconnecte les deux comptes avec `POST /auth/login` pour récupérer leurs `accessToken` et l’identifiant `user.id` d’Alex. Alex commence ce test avec `permissions: 39`, car Morgan lui a déjà ajouté le droit `32` dans le parcours 3.
+
+1. Avec le token d’Alex, envoie `GET /evenements/<idEvenement>/participants` sur l’événement de Camille. Tu dois recevoir `403` avec le code `AUTH_006`.
+2. Avec le token de Morgan, envoie `PATCH /users/<idAlex>/permissions` avec le corps JSON `{"permissions": 512}`. La réponse `200` contient `permissions: 551`.
+3. Rejoue la première requête avec le token d’Alex. Elle doit maintenant renvoyer `200`.
+4. Avec le token de Morgan, envoie `DELETE /users/<idAlex>/permissions/512`. La réponse `200` contient de nouveau `permissions: 39`. Avec le token d’Alex, la première requête renvoie à nouveau `403`.
 
 ### Tester l’annulation d’un événement
 
@@ -248,6 +263,123 @@ Crée un événement à une place et réserve cette place avec un premier compte
 4. Avec le token d’une personne en file, envoie `DELETE /evenements/<id>/waitlist/me`. La réponse `200` confirme son retrait.
 
 Une montée change l’ordre dans lequel les places sont attribuées. Pour tester l’inscription automatique, garde au moins une personne en file et libère la réservation initiale avec `DELETE /evenements/<id>/reservations/me`. Tu peux aussi augmenter la capacité avec `PATCH /evenements/<id>` et un corps comme `{"capacity": 3}`. Les places disponibles sont attribuées dans l’ordre de la file aux comptes actifs. Chaque personne promue apparaît dans `GET /me/reservations` et reçoit un mail simulé dans le terminal de l’API avec la description et la date de l’événement.
+
+## 7. Référence des routes
+
+Ajoute chaque chemin à `http://localhost:3000` et remplace les paramètres comme `<idEvenement>` par les identifiants reçus dans les réponses. Pour une route réservée à un compte connecté, envoie son `accessToken` en Bearer Token. Dans la colonne « Corps JSON », `—` signifie que le corps doit rester vide. Les exemples utilisent `Content-Type: application/json`.
+
+### Authentification
+
+| Méthode et chemin | Accès | Corps JSON | Succès |
+| --- | --- | --- | --- |
+| `POST /auth/login` | Public | `{"email":"camille@example.com","password":"MotDePasseLocal123!"}` | `200` · profil et deux jetons |
+| `GET /auth/me` | Compte connecté | — | `200` · profil du compte connecté |
+| `POST /auth/refresh` | Jeton de renouvellement dans le corps | `{"refreshToken":"<dernierRefreshToken>"}` | `200` · nouvelle paire de jetons |
+| `POST /auth/logout` | Jeton de renouvellement dans le corps | `{"refreshToken":"<dernierRefreshToken>"}` | `200` · session déconnectée |
+| `POST /auth/logout-all` | Compte connecté | — | `200` · toutes les sessions du compte déconnectées |
+
+### Comptes et administration
+
+| Méthode et chemin | Accès | Corps JSON | Succès |
+| --- | --- | --- | --- |
+| `POST /` | Public | `{"name":"Martin","firstname":"Camille","email":"camille@example.com","password":"MotDePasseLocal123!"}` | `202` · demande d’inscription reçue |
+| `GET /` | Superadmin | — | `200` · liste des comptes |
+| `GET /<idUtilisateur>` | Superadmin | — | `200` · détail d’un compte |
+| `PATCH /me/password` | Compte connecté avec le droit `4` | `{"oldPassword":"MotDePasseLocal123!","newPassword":"NouveauMotDePasse456!"}` | `200` · mot de passe modifié |
+| `DELETE /<idUtilisateur>` | Titulaire du compte ou droit `8` pour un autre compte ordinaire | — | `200` · compte supprimé |
+| `PATCH /users/<idUtilisateur>/permissions` | Superadmin | `{"permissions":512}` | `200` · permissions mises à jour |
+| `DELETE /users/<idUtilisateur>/permissions/<droit>` | Superadmin | — | `200` · permissions mises à jour |
+| `GET /users/permissions/audit/export` | Superadmin | — | `200` · journal des modifications de droits en JSON |
+| `PATCH /users/<idUtilisateur>/suspend` | Superadmin | — | `200` · `suspended: true` |
+| `PATCH /users/<idUtilisateur>/reactivate` | Superadmin | — | `200` · `suspended: false` |
+
+Les comptes superadmins sont protégés contre la suppression via l’API. Les valeurs des droits sont détaillées dans la [section Permissions](#6-permissions-et-valeurs).
+
+### Événements
+
+| Méthode et chemin | Accès | Corps JSON | Succès |
+| --- | --- | --- | --- |
+| `GET /evenements` | Public | — | `200` · liste avec les places restantes |
+| `GET /evenements/<idEvenement>` | Public | — | `200` · détail avec les places restantes |
+| `POST /evenements` | Compte connecté avec le droit `1` | `{"description":"Match amical","location":"Gymnase","date":"2030-06-15","capacity":2}` | `201` · événement créé |
+| `PATCH /evenements/<idEvenement>` | Droit `2` sur son événement ou droit `32` sur celui d’un autre | Un ou plusieurs champs parmi `description`, `location` et `capacity`, par exemple `{"location":"Terrain B"}` | `200` · événement modifié |
+| `PATCH /evenements/<idEvenement>/date` | Droit `2` sur son événement ou droit `32` sur celui d’un autre | `{"date":"2030-06-16"}` | `200` · nouvelle date |
+| `PATCH /evenements/<idEvenement>/cancel` | Créateur ou droit `1024` sur l’événement d’un autre | `{"reason":"Gymnase indisponible"}` | `200` · événement annulé |
+| `DELETE /evenements/<idEvenement>` | Créateur | — | `200` · événement supprimé |
+
+### Réservations et file d’attente
+
+| Méthode et chemin | Accès | Corps JSON | Succès |
+| --- | --- | --- | --- |
+| `GET /me/reservations` | Compte connecté | — | `200` · ses réservations avec le statut de chaque événement |
+| `POST /evenements/<idEvenement>/reservations` | Compte connecté | — | `201` · place réservée |
+| `DELETE /evenements/<idEvenement>/reservations/me` | Compte connecté inscrit | — | `200` · participation annulée |
+| `GET /evenements/<idEvenement>/participants` | Créateur ou droit `512` sur l’événement d’un autre | — | `200` · nom et prénom des inscrits |
+| `DELETE /evenements/<idEvenement>/participants/<idUtilisateur>` | Compte connecté avec le droit `64` | — | `200` · participant retiré |
+| `POST /evenements/<idEvenement>/waitlist` | Compte connecté | — | `201` · inscription en file d’attente |
+| `DELETE /evenements/<idEvenement>/waitlist/me` | Compte connecté en file | — | `200` · retrait de la file |
+| `GET /evenements/<idEvenement>/waitlist` | Créateur ou droit `2048` sur l’événement d’un autre | — | `200` · liste ordonnée des personnes en attente |
+| `PATCH /evenements/<idEvenement>/waitlist/<idEntree>/move-up` | Créateur ou droit `2048` sur l’événement d’un autre | — | `200` · position de l’entrée |
+
+Dans `GET /me/reservations`, `evenement.status` vaut `upcoming` (à venir), `today` (aujourd’hui), `finished` (terminé) ou `cancelled` (annulé). La date du jour est calculée dans le fuseau `Europe/Paris`.
+
+## 8. Format des erreurs
+
+Envoie `POST /auth/refresh` dans Postman ou Bruno avec le corps JSON `{"refreshToken":""}`. L’API répond avec le statut HTTP `400` et le corps suivant.
+
+```json
+{
+  "statusCode": 400,
+  "idcode": "ERR_VALI_400",
+  "message": "Les données envoyées sont invalides.",
+  "fields": {
+    "fields": [
+      {
+        "field": "refreshToken",
+        "constraints": [
+          {
+            "constraint": "isNotEmpty",
+            "message": "refreshToken should not be empty"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`idcode` identifie l’erreur pour le client. `message` contient le texte à afficher. `fields` est présent lorsque l’erreur contient des détails, comme les champs invalides dans cet exemple. Le middleware choisit le statut HTTP à partir du code métier et utilise le presenter pour construire le JSON. [Middleware d’erreur](src/core/middleware/erreur.middleware.ts) · [Presenter d’erreur](src/core/http/error.response.ts)
+
+## 9. Exemple de Clean Architecture
+
+La création d’un événement avec `POST /evenements` traverse les couches suivantes.
+
+1. La route vérifie la session et le droit `CREATE_EVENT` (`1`) avant d’appeler le contrôleur. [Route Express](src/profile/evenement/presentation/routes/evenement.route.ts)
+2. Le contrôleur récupère l’identifiant du créateur depuis la session, valide le corps avec `CreateEvenementDto`, puis transmet les données validées au use case. [Contrôleur](src/profile/evenement/presentation/controllers/evenement.controller.ts) · [DTO HTTP](src/profile/evenement/presentation/dtos/create-evenement.dto.ts)
+3. Le use case reçoit un `CreateEvenementInput`, appelle `EvenementGateway.create` et lève une erreur métier si le compte créateur est introuvable. [Input](src/profile/evenement/app/inputs/create-evenement.input.ts) · [Use case](src/profile/evenement/app/usecases/create-evenement.usecase.ts) · [Interface de la gateway](src/profile/evenement/app/interfaces/evenement.gateway.ts)
+4. L’adaptateur d’infrastructure implémente cette interface et enregistre l’événement dans MySQL via TypeORM. `server.ts` injecte cet adaptateur dans le use case au démarrage. [Adaptateur TypeORM](src/profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway.ts) · [Assemblage](src/server.ts)
+5. Le contrôleur passe l’événement au presenter, qui sélectionne les champs publics, puis envoie le JSON avec le statut `201`. [Presenter](src/profile/evenement/presentation/presenters/evenement.presenter.ts)
+
+## 10. Tâches automatiques et mails simulés
+
+Les mails sont simulés dans le terminal de l’API sur des lignes qui commencent par `[MAIL]`. Les tâches planifiées s’exécutent au démarrage de l’API, puis toutes les heures tant qu’elle tourne. Les rappels et les délais J+5 et J+7 suivent la date du jour à Paris (`Europe/Paris`).
+
+| Déclencheur | Comportement |
+| --- | --- |
+| Veille d’un événement | Au passage de la tâche, l’API simule un rappel pour les personnes inscrites à l’événement. Le message contient la date, le lieu, la description et le nom de l’organisateur. |
+| Changement de date | Quand `PATCH /evenements/<idEvenement>/date` modifie la date, l’API simule un mail avec la nouvelle date pour les personnes déjà inscrites. |
+| J+5 après la date de l’événement | L’API simule un mail au créateur pour l’avertir de la suppression prévue à J+7. Si le premier passage a lieu à J+6, le mail indique le jour restant. |
+| J+7 après la date de l’événement | L’API supprime l’événement si sa date n’a pas été reportée, ainsi que les réservations et les entrées en file associées. Pour un événement annulé, le délai est de cinq jours à partir de l’annulation. |
+| Expiration d’un jeton de renouvellement | La tâche de nettoyage supprime les jetons arrivés à expiration. Un jeton révoqué reste en base jusqu’à son expiration et devient inutilisable dès sa révocation. |
+
+### Vérifier le rappel de la veille dans Postman ou Bruno
+
+1. Avec l’`accessToken` du créateur, envoie `POST /evenements` en reprenant le corps du [parcours 1](#parcours-1--créer-et-modifier-son-événement). Renseigne la date de **demain à Paris**, au format `AAAA-MM-JJ`, puis note l’`id` renvoyé.
+2. Avec l’`accessToken` d’un autre compte, envoie `POST /evenements/<idEvenement>/reservations` avec un corps vide. La réponse `201` confirme l’inscription.
+3. Redémarre l’API avec `Ctrl+C`, puis `npm run dev`, en laissant MySQL tourner. Le démarrage déclenche immédiatement la tâche de rappel.
+4. Dans le terminal de l’API, repère la ligne `[MAIL]` contenant « Rappel de l’événement » et l’adresse du compte inscrit. Vérifie la date, le lieu, la description et le nom de l’organisateur. Redémarre une seconde fois pour vérifier que le même compte ne reçoit pas un deuxième rappel pour cette date.
+
+Les [tests du rappel](tests/evenement-reminders.test.mjs) vérifient aussi les inscriptions tardives, le report et l’annulation sans attendre le prochain passage de la tâche.
 
 ## Lancer les tests automatisés
 

@@ -19,12 +19,9 @@ import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { GrantUserPermissionDto } from '../dtos/grant-user-permission.dto';
 import { UserToCreateDto } from '../dtos/user.dto';
 
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-
 import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
-import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
 import { presentMessage } from '../../../../core/http/message.presenter';
+import { validateBody } from '../../../../core/http/validate-body';
 
 import type { Request, Response } from 'express';
 
@@ -46,14 +43,7 @@ export const createGetUsersController = (getUsers: GetUsersUseCase) => {
 
 export const createUserController = (createUser: CreateUserUseCase) => {
     return async (req: Request, res: Response) => {
-        const data = plainToInstance(UserToCreateDto, req.body ?? {});
-        const errors = await validate(data, {
-            whitelist: true,
-            forbidNonWhitelisted: true
-        });
-        if (errors.length > 0) {
-            throw new ValidationFailedError(errors);
-        }
+        const data = await validateBody(UserToCreateDto, req.body);
 
         await createUser(data);
         return res.status(202).json(presentMessage('Votre demande d’inscription a été reçue.'));
@@ -64,15 +54,7 @@ export const createChangePasswordController = (changePassword: ChangePasswordUse
     return async (req: Request, res: Response) => {
         const userId = getAuthenticatedUserId(req);
 
-        const data = plainToInstance(ChangePasswordDto, req.body ?? {});
-        const errors = await validate(data, {
-            whitelist: true,
-            forbidNonWhitelisted: true
-        });
-
-        if (errors.length > 0) {
-            throw new ValidationFailedError(errors);
-        }
+        const data = await validateBody(ChangePasswordDto, req.body);
 
         await changePassword(userId, data);
 
@@ -85,14 +67,7 @@ export const createGrantUserPermissionController = (grantPermission: ChangeUserP
         const actorId = getAuthenticatedUserId(req);
 
         const userId = parseUserId(req.params.id);
-        const data = plainToInstance(GrantUserPermissionDto, req.body ?? {});
-        const errors = await validate(data, {
-            whitelist: true,
-            forbidNonWhitelisted: true
-        });
-        if (errors.length > 0) {
-            throw new ValidationFailedError(errors);
-        }
+        const data = await validateBody(GrantUserPermissionDto, req.body);
 
         const permissions = await grantPermission(actorId, userId, data.permissions);
         return res.status(200).json(presentUserPermissions(userId, permissions));

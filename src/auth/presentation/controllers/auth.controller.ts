@@ -5,36 +5,18 @@ import type { LogoutUseCase } from '../../app/usecases/logout.usecase';
 import { InvalidTokenError } from '../../domain/errors/invalid-token.error';
 import type { RefreshUseCase } from '../../app/usecases/refresh.usecase';
 import { LoginDto } from '../dtos/login.dto';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
 import { presentUser } from '../../../profile/user/presentation/presenters/user.presenter';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { UserNotFound } from '../../../profile/user/domain/errors/user-not-found.error';
-import { ValidationFailedError } from '../../../core/errors/validation-failed.error';
 
 import { presentMessage } from '../../../core/http/message.presenter';
+import { validateBody } from '../../../core/http/validate-body';
 import { presentAuthTokens, presentLogin } from '../presenters/auth.presenter';
 import type { Request, Response } from 'express';
 
 export const createLoginController = (loginUseCase: LoginUseCase) => async (req: Request, res: Response) => {
-
-    // 1. Transformer le body en instance de DTO
-    const credentials = plainToInstance(LoginDto, req.body ?? {});
-
-    // 2. Valider les identifiants
-    const errors = await validate(credentials, {
-        whitelist: true,
-        forbidNonWhitelisted: true
-    });
-
-    if (errors.length > 0) {
-        throw new ValidationFailedError(errors);
-    }
-
-    // 3. Exécuter le cas d’utilisation de connexion
+    const credentials = await validateBody(LoginDto, req.body);
     const result = await loginUseCase(credentials);
-
-    // 4. Retourner le résultat
     return res.status(200).json(presentLogin(result));
 };
 
@@ -55,28 +37,14 @@ export const createGetMeController = (getAuthenticatedUser: GetAuthenticatedUser
 };
 
 export const createRefreshController = (refreshUseCase: RefreshUseCase) => async (req: Request, res: Response) => {
-    const data = plainToInstance(RefreshTokenDto, req.body ?? {});
-    const errors = await validate(data, {
-        whitelist: true,
-        forbidNonWhitelisted: true
-    });
-    if (errors.length > 0) {
-        throw new ValidationFailedError(errors);
-    }
+    const data = await validateBody(RefreshTokenDto, req.body);
 
     const result = await refreshUseCase(data.refreshToken);
     return res.status(200).json(presentAuthTokens(result));
 };
 
 export const createLogoutController = (logout: LogoutUseCase) => async (req: Request, res: Response) => {
-    const data = plainToInstance(RefreshTokenDto, req.body ?? {});
-    const errors = await validate(data, {
-        whitelist: true,
-        forbidNonWhitelisted: true
-    });
-    if (errors.length > 0) {
-        throw new ValidationFailedError(errors);
-    }
+    const data = await validateBody(RefreshTokenDto, req.body);
 
     await logout(data.refreshToken);
 

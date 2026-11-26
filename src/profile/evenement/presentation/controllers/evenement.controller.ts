@@ -1,10 +1,8 @@
-import { plainToInstance } from 'class-transformer';
-import type { ClassConstructor } from 'class-transformer';
-import { validate } from 'class-validator';
 import type { Request, Response } from 'express';
 import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
 import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
 import { presentMessage } from '../../../../core/http/message.presenter';
+import { validateBody } from '../../../../core/http/validate-body';
 import type { CancelEvenementUseCase } from '../../app/usecases/cancel-evenement.usecase';
 import type { CreateEvenementUseCase } from '../../app/usecases/create-evenement.usecase';
 import type { DeleteEvenementUseCase } from '../../app/usecases/delete-evenement.usecase';
@@ -28,20 +26,6 @@ const getAuthenticatedUserId = (req: Request): number => {
     return userId;
 };
 
-const validateEvenementBody = async <T extends object>(dto: ClassConstructor<T>, body: unknown): Promise<T> => {
-    const input = plainToInstance(dto, body ?? {});
-    const errors = await validate(input, {
-        whitelist: true,
-        forbidNonWhitelisted: true
-    });
-
-    if (errors.length > 0) {
-        throw new ValidationFailedError(errors);
-    }
-
-    return input;
-};
-
 export const getEvenementsController = (getEvenements: GetEvenementsUseCase) => {
     return async (_req: Request, res: Response) => {
         const evenements = await getEvenements();
@@ -60,7 +44,7 @@ export const getEvenementByIdController = (getEvenementById: GetEvenementByIdUse
 export const createEvenementController = (createEvenement: CreateEvenementUseCase) => {
     return async (req: Request, res: Response) => {
         const creatorId = getAuthenticatedUserId(req);
-        const input = await validateEvenementBody(CreateEvenementDto, req.body);
+        const input = await validateBody(CreateEvenementDto, req.body);
 
         const evenement = await createEvenement(input, creatorId);
         return res.status(201).json(presentEvenement(evenement));
@@ -71,7 +55,7 @@ export const cancelEvenementController = (cancelEvenement: CancelEvenementUseCas
     return async (req: Request<{ id: string }>, res: Response) => {
         const userId = getAuthenticatedUserId(req);
         const id = parseEvenementId(req.params.id);
-        const { reason } = await validateEvenementBody(CancelEvenementDto, req.body);
+        const { reason } = await validateBody(CancelEvenementDto, req.body);
         const evenement = await cancelEvenement(id, userId, reason, req.user?.permissions ?? 0);
         return res.status(200).json(presentEvenement(evenement));
     };
@@ -91,7 +75,7 @@ export const updateEvenementDetailsController = (updateEvenementDetails: UpdateE
     return async (req: Request<{ id: string }>, res: Response) => {
         const userId = getAuthenticatedUserId(req);
         const id = parseEvenementId(req.params.id);
-        const input = await validateEvenementBody(UpdateEvenementDetailsDto, req.body);
+        const input = await validateBody(UpdateEvenementDetailsDto, req.body);
 
         if (input.description === undefined && input.location === undefined && input.capacity === undefined) {
             throw new ValidationFailedError([{
@@ -109,7 +93,7 @@ export const updateEvenementDateController = (updateEvenementDate: UpdateEveneme
     return async (req: Request<{ id: string }>, res: Response) => {
         const userId = getAuthenticatedUserId(req);
         const id = parseEvenementId(req.params.id);
-        const { date } = await validateEvenementBody(EvenementDateDto, req.body);
+        const { date } = await validateBody(EvenementDateDto, req.body);
 
         await updateEvenementDate(id, userId, date, req.user?.permissions ?? 0);
         return res.status(200).json(presentEvenementDateUpdate(id, date));

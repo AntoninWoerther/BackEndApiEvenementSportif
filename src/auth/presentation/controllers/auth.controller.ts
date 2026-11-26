@@ -2,7 +2,7 @@ import type { GetAuthenticatedUserUseCase } from '../../app/usecases/get-authent
 import type { LoginUseCase } from '../../app/usecases/login.usecase';
 import type { LogoutAllUseCase } from '../../app/usecases/logout-all.usecase';
 import type { LogoutUseCase } from '../../app/usecases/logout.usecase';
-import { InvalidTokenError } from '../../domain/errors/invalid-token.error';
+import { getAuthenticatedUser } from '../get-authenticated-user';
 import type { RefreshUseCase } from '../../app/usecases/refresh.usecase';
 import { LoginDto } from '../dtos/login.dto';
 import { presentUser } from '../../../profile/user/presentation/presenters/user.presenter';
@@ -20,14 +20,10 @@ export const createLoginController = (loginUseCase: LoginUseCase) => async (req:
     return res.status(200).json(presentLogin(result));
 };
 
-export const createGetMeController = (getAuthenticatedUser: GetAuthenticatedUserUseCase) => {
+export const createGetMeController = (getUser: GetAuthenticatedUserUseCase) => {
     return async (req: Request, res: Response) => {
-        const userId = req.user?.id;
-        if (userId === undefined || !Number.isSafeInteger(userId) || userId <= 0) {
-            throw new InvalidTokenError();
-        }
-
-        const user = await getAuthenticatedUser(userId);
+        const { id } = getAuthenticatedUser(req);
+        const user = await getUser(id);
         if (!user) {
             throw new UserNotFound();
         }
@@ -52,11 +48,7 @@ export const createLogoutController = (logout: LogoutUseCase) => async (req: Req
 };
 
 export const createLogoutAllController = (logoutAll: LogoutAllUseCase) => async (req: Request, res: Response) => {
-    const userId = req.user?.id;
-    if (userId === undefined) {
-        throw new InvalidTokenError();
-    }
-
-    await logoutAll(userId);
+    const { id } = getAuthenticatedUser(req);
+    await logoutAll(id);
     return res.status(200).json(presentMessage('Déconnexion de tous les appareils réussie.'));
 };

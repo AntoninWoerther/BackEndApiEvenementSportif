@@ -20,19 +20,11 @@ import { GrantUserPermissionDto } from '../dtos/grant-user-permission.dto';
 import { UserToCreateDto } from '../dtos/user.dto';
 
 import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
+import { getAuthenticatedUser } from '../../../../auth/presentation/get-authenticated-user';
 import { presentMessage } from '../../../../core/http/message.presenter';
 import { validateBody } from '../../../../core/http/validate-body';
 
 import type { Request, Response } from 'express';
-
-const getAuthenticatedUserId = (req: Request): number => {
-    const id = req.user?.id;
-    if (id === undefined || !Number.isSafeInteger(id) || id <= 0) {
-        throw new InvalidTokenError();
-    }
-
-    return id;
-};
 
 export const createGetUsersController = (getUsers: GetUsersUseCase) => {
     return async (_req: Request, res: Response) => {
@@ -52,7 +44,7 @@ export const createUserController = (createUser: CreateUserUseCase) => {
 
 export const createChangePasswordController = (changePassword: ChangePasswordUseCase) => {
     return async (req: Request, res: Response) => {
-        const userId = getAuthenticatedUserId(req);
+        const userId = getAuthenticatedUser(req).id;
 
         const data = await validateBody(ChangePasswordDto, req.body);
 
@@ -64,7 +56,7 @@ export const createChangePasswordController = (changePassword: ChangePasswordUse
 
 export const createGrantUserPermissionController = (grantPermission: ChangeUserPermissionUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const actorId = getAuthenticatedUserId(req);
+        const actorId = getAuthenticatedUser(req).id;
 
         const userId = parseUserId(req.params.id);
         const data = await validateBody(GrantUserPermissionDto, req.body);
@@ -76,7 +68,7 @@ export const createGrantUserPermissionController = (grantPermission: ChangeUserP
 
 export const createRevokeUserPermissionController = (revokePermission: ChangeUserPermissionUseCase) => {
     return async (req: Request<{ id: string; permission: string }>, res: Response) => {
-        const actorId = getAuthenticatedUserId(req);
+        const actorId = getAuthenticatedUser(req).id;
         const userId = parseUserId(req.params.id);
         if (!/^\d+$/.test(req.params.permission)) {
             throw new InvalidUserPermissionsError();
@@ -100,7 +92,7 @@ export const createExportUserPermissionChangesController = (exportChanges: Expor
 
 export const createChangeUserAccountStatusController = (changeStatus: ChangeUserAccountStatusUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const actorId = getAuthenticatedUserId(req);
+        const actorId = getAuthenticatedUser(req).id;
         const userId = parseUserId(req.params.id);
         const suspended = await changeStatus(actorId, userId);
 
@@ -110,8 +102,8 @@ export const createChangeUserAccountStatusController = (changeStatus: ChangeUser
 
 export const createDeleteUserController = (deleteUser: DeleteUserUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const user = req.user;
-        if (!user || user.permissions === undefined) {
+        const user = getAuthenticatedUser(req);
+        if (user.permissions === undefined) {
             throw new InvalidTokenError();
         }
 

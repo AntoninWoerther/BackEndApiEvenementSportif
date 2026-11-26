@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { InvalidTokenError } from '../../../auth/domain/errors/invalid-token.error';
+import { getAuthenticatedUser } from '../../../auth/presentation/get-authenticated-user';
 import { presentMessage } from '../../../core/http/message.presenter';
 import { parseEvenementId } from '../../../profile/evenement/presentation/routes/parse-evenement-id';
 import { parseUserId } from '../../../profile/user/presentation/routes/parse-user-id';
@@ -21,15 +22,6 @@ import {
 
 type ReservationRequest = Request<{ evenementId: string }>;
 
-const getAuthenticatedUserId = (req: Request): number => {
-    const userId = req.user?.id;
-    if (userId === undefined || !Number.isSafeInteger(userId) || userId <= 0) {
-        throw new InvalidTokenError();
-    }
-
-    return userId;
-};
-
 const getActorPermissions = (req: Request): number => {
     const permissions = req.user?.permissions;
     if (permissions === undefined) {
@@ -39,13 +31,13 @@ const getActorPermissions = (req: Request): number => {
 };
 
 const getReservationParticipant = (req: ReservationRequest): ReservationParticipantInput => {
-    const userId = getAuthenticatedUserId(req);
+    const userId = getAuthenticatedUser(req).id;
     return { evenementId: parseEvenementId(req.params.evenementId), userId };
 };
 
 export const getMyReservationsController = (getMyReservations: GetMyReservationsUseCase) => {
     return async (req: Request, res: Response) => {
-        const reservations = await getMyReservations(getAuthenticatedUserId(req));
+        const reservations = await getMyReservations(getAuthenticatedUser(req).id);
         return res.status(200).set('Cache-Control', 'no-store').json(reservations.map(presentReservationWithEvenement));
     };
 };
@@ -67,7 +59,7 @@ export const cancelReservationController = (cancelReservation: CancelReservation
 
 export const getEventParticipantsController = (getEventParticipants: GetEventParticipantsUseCase) => {
     return async (req: ReservationRequest, res: Response) => {
-        const id = getAuthenticatedUserId(req);
+        const id = getAuthenticatedUser(req).id;
         const permissions = getActorPermissions(req);
 
         const evenementId = parseEvenementId(req.params.evenementId);

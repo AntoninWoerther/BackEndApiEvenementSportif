@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.error';
+import { getAuthenticatedUser } from '../../../../auth/presentation/get-authenticated-user';
 import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
 import { presentMessage } from '../../../../core/http/message.presenter';
 import { validateBody } from '../../../../core/http/validate-body';
@@ -16,15 +16,6 @@ import { CreateEvenementDto } from '../dtos/create-evenement.dto';
 import { EvenementDateDto } from '../dtos/evenement-date.dto';
 import { UpdateEvenementDetailsDto } from '../dtos/update-evenement-details.dto';
 import { presentEvenement, presentEvenementDateUpdate, presentEvenementWithAvailability } from '../presenters/evenement.presenter';
-
-const getAuthenticatedUserId = (req: Request): number => {
-    const userId = req.user?.id;
-    if (userId === undefined || !Number.isSafeInteger(userId) || userId <= 0) {
-        throw new InvalidTokenError();
-    }
-
-    return userId;
-};
 
 export const getEvenementsController = (getEvenements: GetEvenementsUseCase) => {
     return async (_req: Request, res: Response) => {
@@ -43,7 +34,7 @@ export const getEvenementByIdController = (getEvenementById: GetEvenementByIdUse
 
 export const createEvenementController = (createEvenement: CreateEvenementUseCase) => {
     return async (req: Request, res: Response) => {
-        const creatorId = getAuthenticatedUserId(req);
+        const creatorId = getAuthenticatedUser(req).id;
         const input = await validateBody(CreateEvenementDto, req.body);
 
         const evenement = await createEvenement(input, creatorId);
@@ -53,17 +44,17 @@ export const createEvenementController = (createEvenement: CreateEvenementUseCas
 
 export const cancelEvenementController = (cancelEvenement: CancelEvenementUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const userId = getAuthenticatedUserId(req);
+        const { id: userId, permissions } = getAuthenticatedUser(req);
         const id = parseEvenementId(req.params.id);
         const { reason } = await validateBody(CancelEvenementDto, req.body);
-        const evenement = await cancelEvenement(id, userId, reason, req.user?.permissions ?? 0);
+        const evenement = await cancelEvenement(id, userId, reason, permissions ?? 0);
         return res.status(200).json(presentEvenement(evenement));
     };
 };
 
 export const deleteEvenementController = (deleteEvenement: DeleteEvenementUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const userId = getAuthenticatedUserId(req);
+        const userId = getAuthenticatedUser(req).id;
         const id = parseEvenementId(req.params.id);
 
         await deleteEvenement(id, userId);
@@ -73,7 +64,7 @@ export const deleteEvenementController = (deleteEvenement: DeleteEvenementUseCas
 
 export const updateEvenementDetailsController = (updateEvenementDetails: UpdateEvenementDetailsUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const userId = getAuthenticatedUserId(req);
+        const { id: userId, permissions } = getAuthenticatedUser(req);
         const id = parseEvenementId(req.params.id);
         const input = await validateBody(UpdateEvenementDetailsDto, req.body);
 
@@ -84,18 +75,18 @@ export const updateEvenementDetailsController = (updateEvenementDetails: UpdateE
             }]);
         }
 
-        const evenement = await updateEvenementDetails(id, userId, input, req.user?.permissions ?? 0);
+        const evenement = await updateEvenementDetails(id, userId, input, permissions ?? 0);
         return res.status(200).json(presentEvenement(evenement));
     };
 };
 
 export const updateEvenementDateController = (updateEvenementDate: UpdateEvenementDateUseCase) => {
     return async (req: Request<{ id: string }>, res: Response) => {
-        const userId = getAuthenticatedUserId(req);
+        const { id: userId, permissions } = getAuthenticatedUser(req);
         const id = parseEvenementId(req.params.id);
         const { date } = await validateBody(EvenementDateDto, req.body);
 
-        await updateEvenementDate(id, userId, date, req.user?.permissions ?? 0);
+        await updateEvenementDate(id, userId, date, permissions ?? 0);
         return res.status(200).json(presentEvenementDateUpdate(id, date));
     };
 };

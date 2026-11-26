@@ -1,6 +1,10 @@
-import type { UserEntity } from '../../../profile/user/infra/persistance/entities/user.entity';
-import { findUserById } from '../../../profile/user/infra/persistance/repositories/user.repository';
+import type { UserGateway } from '../../../profile/user/app/interfaces/user.gateway';
+import type { UserProfile } from '../../../profile/user/domain/user-profile';
 
-export const getAuthenticatedUserUseCase = (userId: number): Promise<UserEntity | null> => {
-    return findUserById(userId);
+export type GetAuthenticatedUserUseCase = (userId: number) => Promise<UserProfile | null>;
+
+export const makeGetAuthenticatedUserUseCase = (
+    users: Pick<UserGateway, 'findById'>
+): GetAuthenticatedUserUseCase => {
+    return userId => users.findById(userId);
 };

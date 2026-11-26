@@ -5,11 +5,12 @@ import { createRefreshUseCase } from '../src/auth/app/usecases/refresh.usecase.t
 import { RefreshTokenEntity } from '../src/auth/infra/persistance/entities/refresh-token.entity.ts';
 import { typeormRefreshTokenGateway } from '../src/auth/infra/persistance/repositories/typeorm-refresh-token.gateway.ts';
 import { verifyAccessToken } from '../src/auth/infra/security/access-token.security.ts';
+import { nodeTokenSecurityGateway } from '../src/auth/infra/security/node-token-security.gateway.ts';
 import { hashRefreshToken } from '../src/auth/infra/security/refresh-token.security.ts';
 import { db } from '../src/core/dataBase.config.ts';
 import { UserEntity } from '../src/profile/user/infra/persistance/entities/user.entity.ts';
 
-const refresh = createRefreshUseCase(typeormRefreshTokenGateway);
+const refresh = createRefreshUseCase(typeormRefreshTokenGateway, nodeTokenSecurityGateway);
 const initialToken = 'jeton-de-renouvellement-de-test';
 const userId = 42;
 const sessionId = 'e92713ab-4ca5-4faf-b0db-35eaf7fd7cca';

@@ -5,10 +5,18 @@ import type { ChangePasswordUseCase } from '../../app/usecases/change-password.u
 import type { ChangeUserAccountStatusUseCase } from '../../app/usecases/change-user-account-status.usecase';
 import type { ChangeUserPermissionUseCase } from '../../app/usecases/change-user-permission.usecase';
 import type { ExportUserPermissionChangesUseCase } from '../../app/usecases/export-user-permission-changes.usecase';
+import type { CreateUserUseCase } from '../../app/usecases/create-user.usecase';
+import type { DeleteUserUseCase } from '../../app/usecases/delete-user.usecase';
+import type { GetUserByIdUseCase } from '../../app/usecases/get-user-by-id.usecase';
+import type { GetUsersUseCase } from '../../app/usecases/get-users.usecase';
 import { USER_PERMISSIONS } from '../../domain/permissions/user.permissions';
 import * as userController from '../controllers/user.controller';
 
 interface UserRouteDependencies {
+    createUser: CreateUserUseCase;
+    deleteUser: DeleteUserUseCase;
+    getUserById: GetUserByIdUseCase;
+    getUsers: GetUsersUseCase;
     changePassword: ChangePasswordUseCase;
     grantUserPermission: ChangeUserPermissionUseCase;
     revokeUserPermission: ChangeUserPermissionUseCase;
@@ -20,6 +28,10 @@ interface UserRouteDependencies {
 }
 
 export const createUserRouter = ({
+    createUser,
+    deleteUser,
+    getUserById,
+    getUsers,
     changePassword,
     grantUserPermission,
     revokeUserPermission,
@@ -36,10 +48,10 @@ export const createUserRouter = ({
         requireUserPermission(USER_PERMISSIONS.SUPERUSER)
     ];
 
-    router.get('/', ...superuserOnly, userController.getUsers);
-    router.post('/', userController.setUsers);
-    router.delete('/:id', authMiddleware, loadUserPermissions, userController.delUser);
-    router.get('/:id', ...superuserOnly, userController.getUserById);
+    router.get('/', ...superuserOnly, userController.createGetUsersController(getUsers));
+    router.post('/', userController.createUserController(createUser));
+    router.delete('/:id', authMiddleware, loadUserPermissions, userController.createDeleteUserController(deleteUser));
+    router.get('/:id', ...superuserOnly, userController.createGetUserByIdController(getUserById));
     router.patch(
         '/me/password',
         authMiddleware,

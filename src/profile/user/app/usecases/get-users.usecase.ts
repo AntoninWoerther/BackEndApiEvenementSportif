@@ -1,6 +1,8 @@
-import type { UserEntity } from '../../infra/persistance/entities/user.entity';
-import { findAllUsers } from '../../infra/persistance/repositories/user.repository';
+import type { UserProfile } from '../../domain/user-profile';
+import type { UserGateway } from '../interfaces/user.gateway';
 
-export const getUsersUseCase = async (): Promise<UserEntity[]> => {
-    return findAllUsers();
+export type GetUsersUseCase = () => Promise<UserProfile[]>;
+
+export const makeGetUsersUseCase = (users: Pick<UserGateway, 'list'>): GetUsersUseCase => {
+    return () => users.list();
 };

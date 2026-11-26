@@ -1,13 +1,16 @@
 import { UserNotFound } from '../../domain/errors/user-not-found.error';
-import { findUserById } from '../../infra/persistance/repositories/user.repository';
+import type { UserProfile } from '../../domain/user-profile';
+import type { UserGateway } from '../interfaces/user.gateway';
 
-export const getUserByIdUseCase = async (id: number) => {
+export type GetUserByIdUseCase = (id: number) => Promise<UserProfile>;
 
-    const user = await findUserById(id);
+export const makeGetUserByIdUseCase = (users: Pick<UserGateway, 'findById'>): GetUserByIdUseCase => {
+    return async id => {
+        const user = await users.findById(id);
+        if (!user) {
+            throw new UserNotFound();
+        }
 
-    if (!user) {
-        throw new UserNotFound();
-    }
-
-    return user;
+        return user;
+    };
 };

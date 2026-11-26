@@ -1,4 +1,4 @@
-import { getAuthenticatedUserUseCase } from '../../app/usecases/get-authenticated-user.usecase';
+import type { GetAuthenticatedUserUseCase } from '../../app/usecases/get-authenticated-user.usecase';
 import type { LoginUseCase } from '../../app/usecases/login.usecase';
 import type { LogoutAllUseCase } from '../../app/usecases/logout-all.usecase';
 import type { LogoutUseCase } from '../../app/usecases/logout.usecase';
@@ -38,18 +38,20 @@ export const createLoginController = (loginUseCase: LoginUseCase) => async (req:
     return res.status(200).json(presentLogin(result));
 };
 
-export const getMe = async (req: Request, res: Response) => {
-    const userId = req.user?.id;
-    if (userId === undefined || !Number.isSafeInteger(userId) || userId <= 0) {
-        throw new InvalidTokenError();
-    }
+export const createGetMeController = (getAuthenticatedUser: GetAuthenticatedUserUseCase) => {
+    return async (req: Request, res: Response) => {
+        const userId = req.user?.id;
+        if (userId === undefined || !Number.isSafeInteger(userId) || userId <= 0) {
+            throw new InvalidTokenError();
+        }
 
-    const user = await getAuthenticatedUserUseCase(userId);
-    if (!user) {
-        throw new UserNotFound();
-    }
+        const user = await getAuthenticatedUser(userId);
+        if (!user) {
+            throw new UserNotFound();
+        }
 
-    return res.status(200).json(presentUser(user));
+        return res.status(200).json(presentUser(user));
+    };
 };
 
 export const createRefreshController = (refreshUseCase: RefreshUseCase) => async (req: Request, res: Response) => {

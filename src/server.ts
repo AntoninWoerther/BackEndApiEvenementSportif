@@ -32,15 +32,23 @@ import { typeormUserPermissionsGateway } from './profile/user/infra/persistance/
 import { makeAuthMiddleware } from './auth/infra/gards/auth.middleware';
 import { makeLoadUserPermissions } from './auth/infra/gards/user-permissions.middleware';
 import { typeormUserPasswordGateway } from './profile/user/infra/persistance/repositories/typeorm-user-password.gateway';
+import { makeCreateUserUseCase } from './profile/user/app/usecases/create-user.usecase';
+import { makeDeleteUserUseCase } from './profile/user/app/usecases/delete-user.usecase';
+import { makeGetUserByIdUseCase } from './profile/user/app/usecases/get-user-by-id.usecase';
+import { makeGetUsersUseCase } from './profile/user/app/usecases/get-users.usecase';
+import { typeormUserGateway } from './profile/user/infra/persistance/repositories/typeorm-user.gateway';
+import { bcryptPasswordHasherGateway } from './profile/user/infra/security/bcrypt-password-hasher.gateway';
 import { createUserRouter } from './profile/user/presentation/routes/user.route';
 import { makeCleanupRefreshTokensUseCase } from './auth/app/usecases/cleanup-refresh-tokens.usecase';
 import { createIssueRefreshTokenUseCase } from './auth/app/usecases/create-refresh-token.usecase';
+import { makeGetAuthenticatedUserUseCase } from './auth/app/usecases/get-authenticated-user.usecase';
 import { createLoginUseCase } from './auth/app/usecases/login.usecase';
 import { createLogoutAllUseCase } from './auth/app/usecases/logout-all.usecase';
 import { createLogoutUseCase } from './auth/app/usecases/logout.usecase';
 import { createRefreshUseCase } from './auth/app/usecases/refresh.usecase';
 import { typeormRefreshTokenGateway } from './auth/infra/persistance/repositories/typeorm-refresh-token.gateway';
 import { startRefreshTokenCleanupScheduler } from './auth/infra/scheduling/refresh-token-cleanup.scheduler';
+import { nodeTokenSecurityGateway } from './auth/infra/security/node-token-security.gateway';
 import { createAuthRouter } from './auth/presentation/routes/auth.route';
 import { db } from './core/dataBase.config';
 import { errorMiddleware } from './core/middleware/erreur.middleware';
@@ -64,7 +72,7 @@ const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
 const getEventParticipants = makeGetEventParticipantsUseCase(typeormReservationGateway);
 const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
-const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway);
+const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway, bcryptPasswordHasherGateway);
 const suspendUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'SUSPEND');
 const reactivateUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'REACTIVATE');
 const grantUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'grant');
@@ -72,7 +80,7 @@ const revokeUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissi
 const exportUserPermissionChanges = makeExportUserPermissionChangesUseCase(typeormUserPermissionsGateway);
 const authMiddleware = makeAuthMiddleware(typeormRefreshTokenGateway);
 const loadUserPermissions = makeLoadUserPermissions(typeormUserPermissionsGateway);
-const issueRefreshToken = createIssueRefreshTokenUseCase(typeormRefreshTokenGateway);
+const issueRefreshToken = createIssueRefreshTokenUseCase(typeormRefreshTokenGateway, nodeTokenSecurityGateway);
 
 
 app.use(cors());
@@ -98,6 +106,10 @@ app.use('/', createReservationRouter({
   loadUserPermissions
 }));
 app.use('/', createUserRouter({
+  createUser: makeCreateUserUseCase(typeormUserGateway, bcryptPasswordHasherGateway),
+  deleteUser: makeDeleteUserUseCase(typeormUserGateway),
+  getUserById: makeGetUserByIdUseCase(typeormUserGateway),
+  getUsers: makeGetUsersUseCase(typeormUserGateway),
   changePassword,
   grantUserPermission,
   revokeUserPermission,
@@ -108,11 +120,12 @@ app.use('/', createUserRouter({
   loadUserPermissions
 }));
 app.use('/auth', createAuthRouter({
-  login: createLoginUseCase(issueRefreshToken),
+  login: createLoginUseCase(typeormUserGateway, bcryptPasswordHasherGateway, nodeTokenSecurityGateway, issueRefreshToken),
+  getAuthenticatedUser: makeGetAuthenticatedUserUseCase(typeormUserGateway),
   authMiddleware,
-  logout: createLogoutUseCase(typeormRefreshTokenGateway),
+  logout: createLogoutUseCase(typeormRefreshTokenGateway, nodeTokenSecurityGateway),
   logoutAll: createLogoutAllUseCase(typeormRefreshTokenGateway),
-  refresh: createRefreshUseCase(typeormRefreshTokenGateway)
+  refresh: createRefreshUseCase(typeormRefreshTokenGateway, nodeTokenSecurityGateway)
 }));
 
 app.use((_req, _res, next) => {
@@ -122,7 +135,7 @@ app.use(errorMiddleware);
 
 const startServer = async (): Promise<void> => {
   await db.initialize();
-  registerSignupEmailListeners();
+  registerSignupEmailListeners(typeormUserGateway);
   registerUserDeletionEmailListener();
   registerEvenementCancellationEmailListener();
   registerEvenementDateEmailListener(typeormReservationGateway);

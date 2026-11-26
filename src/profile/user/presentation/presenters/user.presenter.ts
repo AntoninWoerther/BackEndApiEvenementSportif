@@ -1,6 +1,6 @@
 import { Exclude, Expose, plainToInstance } from 'class-transformer';
 import type { UserPermissionChange } from '../../domain/permissions/user-permission-change';
-import type { UserEntity } from '../../infra/persistance/entities/user.entity';
+import type { UserProfile } from '../../domain/user-profile';
 
 @Exclude()
 export class UserPresenter {
@@ -14,12 +14,12 @@ export class UserPresenter {
     @Expose()
     firstname!: string;
 
-    constructor(user: UserEntity) {
+    constructor(user: UserProfile) {
         Object.assign(this, user);
     }
 }
 
-export const presentUser = (user: UserEntity): UserPresenter => {
+export const presentUser = (user: UserProfile): UserPresenter => {
     return plainToInstance(UserPresenter, user, {
         excludeExtraneousValues: true
     });

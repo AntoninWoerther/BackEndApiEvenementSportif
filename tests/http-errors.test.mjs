@@ -5,6 +5,7 @@ import { Duplex } from 'node:stream';
 import { test } from 'node:test';
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { makeGetAuthenticatedUserUseCase } from '../src/auth/app/usecases/get-authenticated-user.usecase.ts';
 import { ExpiredRefreshTokenError } from '../src/auth/domain/errors/expired-refresh-token.error.ts';
 import { InvalidRefreshTokenError } from '../src/auth/domain/errors/invalid-refresh-token.error.ts';
 import { RevokedRefreshTokenError } from '../src/auth/domain/errors/revoked-refresh-token.error.ts';
@@ -13,7 +14,10 @@ import { makeLoadUserPermissions } from '../src/auth/infra/gards/user-permission
 import { createAuthRouter } from '../src/auth/presentation/routes/auth.route.ts';
 import { db } from '../src/core/dataBase.config.ts';
 import { errorMiddleware } from '../src/core/middleware/erreur.middleware.ts';
+import { makeGetUserByIdUseCase } from '../src/profile/user/app/usecases/get-user-by-id.usecase.ts';
+import { makeGetUsersUseCase } from '../src/profile/user/app/usecases/get-users.usecase.ts';
 import { DEFAULT_USER_PERMISSIONS, USER_PERMISSIONS } from '../src/profile/user/domain/permissions/user.permissions.ts';
+import { typeormUserGateway } from '../src/profile/user/infra/persistance/repositories/typeorm-user.gateway.ts';
 import { createUserRouter } from '../src/profile/user/presentation/routes/user.route.ts';
 
 function createAuthTestApp(refresh) {
@@ -21,6 +25,7 @@ function createAuthTestApp(refresh) {
     app.use(express.json());
     app.use('/auth', createAuthRouter({
         authMiddleware: makeAuthMiddleware({ hasActiveSession: async () => true }),
+        getAuthenticatedUser: makeGetAuthenticatedUserUseCase(typeormUserGateway),
         refresh
     }));
     app.use(errorMiddleware);
@@ -126,6 +131,8 @@ test('seul le superadmin peut consulter la liste et le détail des comptes', asy
 
     const app = express();
     app.use(createUserRouter({
+        getUserById: makeGetUserByIdUseCase(typeormUserGateway),
+        getUsers: makeGetUsersUseCase(typeormUserGateway),
         authMiddleware: makeAuthMiddleware({ hasActiveSession: async () => true }),
         loadUserPermissions: makeLoadUserPermissions({
             findPermissionsByUserId: async id => id === 1 ? USER_PERMISSIONS.SUPERUSER : DEFAULT_USER_PERMISSIONS

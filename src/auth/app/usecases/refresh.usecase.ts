@@ -1,15 +1,16 @@
-import { randomUUID } from 'node:crypto';
 import { ExpiredRefreshTokenError } from '../../domain/errors/expired-refresh-token.error';
 import { InvalidRefreshTokenError } from '../../domain/errors/invalid-refresh-token.error';
 import { RevokedRefreshTokenError } from '../../domain/errors/revoked-refresh-token.error';
-import { getJwtSecret, signAccessToken } from '../../infra/security/access-token.security';
-import { hashRefreshToken } from '../../infra/security/refresh-token.security';
 import type { RefreshTokenGateway } from '../interfaces/refresh-token.gateway';
+import type { TokenSecurityGateway } from '../interfaces/token-security.gateway';
 import { prepareRefreshToken } from './create-refresh-token.usecase';
 
-export const createRefreshUseCase = (gateway: RefreshTokenGateway) => {
+export const createRefreshUseCase = (
+    gateway: Pick<RefreshTokenGateway, 'findByHash' | 'rotate'>,
+    tokens: TokenSecurityGateway
+) => {
     return async (refreshToken: string) => {
-        const storedToken = await gateway.findByHash(hashRefreshToken(refreshToken));
+        const storedToken = await gateway.findByHash(tokens.hashRefreshToken(refreshToken));
 
         if (!storedToken) {
             throw new InvalidRefreshTokenError();
@@ -23,9 +24,9 @@ export const createRefreshUseCase = (gateway: RefreshTokenGateway) => {
             throw new ExpiredRefreshTokenError();
         }
 
-        const sessionId = storedToken.sessionId ?? randomUUID();
-        const accessToken = signAccessToken(storedToken.userId, getJwtSecret(), sessionId);
-        const { refreshToken: newRefreshToken, tokenToSave } = prepareRefreshToken(storedToken.userId, sessionId);
+        const sessionId = storedToken.sessionId ?? tokens.createSessionId();
+        const accessToken = tokens.signAccessToken(storedToken.userId, sessionId);
+        const { refreshToken: newRefreshToken, tokenToSave } = prepareRefreshToken(tokens, storedToken.userId, sessionId);
         if (!(await gateway.rotate(storedToken.id, tokenToSave))) {
             throw new InvalidRefreshTokenError();
         }

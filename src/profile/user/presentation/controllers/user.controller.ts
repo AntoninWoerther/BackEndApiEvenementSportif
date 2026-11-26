@@ -3,10 +3,10 @@ import type { ChangePasswordUseCase } from '../../app/usecases/change-password.u
 import type { ChangeUserAccountStatusUseCase } from '../../app/usecases/change-user-account-status.usecase';
 import type { ChangeUserPermissionUseCase } from '../../app/usecases/change-user-permission.usecase';
 import type { ExportUserPermissionChangesUseCase } from '../../app/usecases/export-user-permission-changes.usecase';
-import { createUserUseCase } from '../../app/usecases/create-user.usecase';
-import { deleteUserUseCase } from '../../app/usecases/delete-user.usecase';
-import { getUserByIdUseCase } from '../../app/usecases/get-user-by-id.usecase';
-import { getUsersUseCase } from '../../app/usecases/get-users.usecase';
+import type { CreateUserUseCase } from '../../app/usecases/create-user.usecase';
+import type { DeleteUserUseCase } from '../../app/usecases/delete-user.usecase';
+import type { GetUserByIdUseCase } from '../../app/usecases/get-user-by-id.usecase';
+import type { GetUsersUseCase } from '../../app/usecases/get-users.usecase';
 import { parseUserId } from '../routes/parse-user-id';
 import { InvalidUserPermissionsError } from '../../domain/errors/invalid-user-permissions.error';
 import {
@@ -37,33 +37,27 @@ const getAuthenticatedUserId = (req: Request): number => {
     return id;
 };
 
-export const getUsers = async (req: Request, res: Response) => {
-
-    const users = await getUsersUseCase();
-
-    const usersPresenter = users.map(user => presentUser(user));
-
-    return res.status(200).json(usersPresenter);
+export const createGetUsersController = (getUsers: GetUsersUseCase) => {
+    return async (_req: Request, res: Response) => {
+        const users = await getUsers();
+        return res.status(200).json(users.map(presentUser));
+    };
 };
 
-export const setUsers = async (req: Request, res: Response) => {
+export const createUserController = (createUser: CreateUserUseCase) => {
+    return async (req: Request, res: Response) => {
+        const data = plainToInstance(UserToCreateDto, req.body ?? {});
+        const errors = await validate(data, {
+            whitelist: true,
+            forbidNonWhitelisted: true
+        });
+        if (errors.length > 0) {
+            throw new ValidationFailedError(errors);
+        }
 
-    // 1. Transformer le body en instance de DTO
-    const data = plainToInstance(UserToCreateDto, req.body ?? {});
-
-    // 2. Valider les propriétés
-    const errors = await validate(data, {
-        whitelist: true,
-        forbidNonWhitelisted: true
-    });
-
-    if (errors.length > 0) {
-        throw new ValidationFailedError(errors);
-    }
-
-    await createUserUseCase(data);
-
-    return res.status(202).json(presentMessage('Votre demande d’inscription a été reçue.'));
+        await createUser(data);
+        return res.status(202).json(presentMessage('Votre demande d’inscription a été reçue.'));
+    };
 };
 
 export const createChangePasswordController = (changePassword: ChangePasswordUseCase) => {
@@ -139,21 +133,23 @@ export const createChangeUserAccountStatusController = (changeStatus: ChangeUser
     };
 };
 
-export const delUser = async (req: Request<{ id: string }>, res: Response) => {
-    const user = req.user;
-    if (!user || user.permissions === undefined) {
-        throw new InvalidTokenError();
-    }
+export const createDeleteUserController = (deleteUser: DeleteUserUseCase) => {
+    return async (req: Request<{ id: string }>, res: Response) => {
+        const user = req.user;
+        if (!user || user.permissions === undefined) {
+            throw new InvalidTokenError();
+        }
 
-    const id = parseUserId(req.params.id);
-    await deleteUserUseCase(id, { id: user.id, permissions: user.permissions });
-
-    return res.status(200).json(presentMessage('Utilisateur supprimé avec succès.'));
+        const id = parseUserId(req.params.id);
+        await deleteUser(id, { id: user.id, permissions: user.permissions });
+        return res.status(200).json(presentMessage('Utilisateur supprimé avec succès.'));
+    };
 };
 
-export const getUserById = async (req: Request<{ id: string }>, res: Response) => {
-    const id = parseUserId(req.params.id);
-    const user = await getUserByIdUseCase(id);
-
-    return res.status(200).json(presentUser(user));
+export const createGetUserByIdController = (getUserById: GetUserByIdUseCase) => {
+    return async (req: Request<{ id: string }>, res: Response) => {
+        const id = parseUserId(req.params.id);
+        const user = await getUserById(id);
+        return res.status(200).json(presentUser(user));
+    };
 };

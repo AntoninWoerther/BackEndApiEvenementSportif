@@ -20,26 +20,40 @@ Démarre ton serveur MySQL sur le port `3306`. Pour ouvrir une session SQL depui
 CREATE DATABASE IF NOT EXISTS evenementsportif CHARACTER SET utf8mb4;
 ```
 
-L’API utilise par défaut `localhost:3306`, le compte `root` avec un mot de passe vide et la base `evenementsportif`. Ces valeurs se trouvent dans [src/core/dataBase.config.ts](src/core/dataBase.config.ts). Si ton installation exige un mot de passe ou utilise un autre compte, adapte la configuration locale à tes identifiants MySQL. Garde tes identifiants hors des commits.
+Si tu choisis un autre nom de base, utilise ce nom dans la commande SQL et dans `DB_NAME` à l’étape suivante.
 
 TypeORM crée les tables au premier démarrage grâce à `synchronize: true`. Le compte utilisé par l’API doit donc pouvoir créer et modifier les tables de cette base.
 
-## 3. Configurer les jetons
+## 3. Configurer MySQL et les jetons dans `.env`
 
-Crée un fichier `.env` à côté de `package.json`. Tu peux générer une clé de signature avec Node.js.
+Si tu n’as pas encore de fichier `.env`, copie [`.env.example`](.env.example) sous le nom `.env`, à côté de `package.json`.
+
+Adapte les paramètres `DB_*` de `.env` à ton serveur MySQL.
+
+| Variable | Valeur locale par défaut |
+| --- | --- |
+| `DB_HOST` | `localhost` |
+| `DB_PORT` | `3306` |
+| `DB_USER` | `root` |
+| `DB_PASSWORD` | Vide |
+| `DB_NAME` | `evenementsportif` |
+
+Si ton compte MySQL a un mot de passe, renseigne-le dans `DB_PASSWORD`. Mets la valeur entre guillemets si elle contient un `#`. Le fichier `.env` est ignoré par Git et `.env.example` sert de modèle partagé.
+
+Pour la connexion des utilisateurs, génère une clé de signature avec Node.js.
 
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-Copie la valeur affichée à la place de `ta_cle_generee` dans le fichier `.env`.
+Renseigne la valeur affichée dans `JWT_SECRET`.
 
 ```dotenv
 JWT_SECRET=ta_cle_generee
 JWT_EXPIRES_IN=5m
 ```
 
-`JWT_SECRET` est nécessaire pour signer les jetons de connexion. `JWT_EXPIRES_IN` est facultative et vaut `5m` par défaut. Git ignore le fichier `.env`.
+`JWT_SECRET` est nécessaire pour signer les jetons de connexion. `JWT_EXPIRES_IN` est facultative et vaut `5m` par défaut.
 
 ## 4. Démarrer l’API
 
@@ -75,7 +89,7 @@ Tu dois recevoir un statut `200` avec un tableau JSON. Sur une base neuve, le ta
 2. Envoie `POST http://localhost:3000/auth/login` avec les mêmes valeurs pour `email` et `password` dans le corps JSON. La réponse `200` contient `user`, `accessToken` et `refreshToken`.
 3. Envoie `GET http://localhost:3000/auth/me` avec `Authorization: Bearer <accessToken>`. Tu dois recevoir le profil du compte connecté. Pour renouveler les jetons, envoie le `refreshToken` dans le corps JSON de `POST http://localhost:3000/auth/refresh`.
 
-Si tu veux tester les actions réservées au superadmin, récupère `user.id` dans la réponse de connexion, puis exécute la commande suivante en remplaçant `1` par l’identifiant de ton compte de test.
+Si tu veux tester les actions réservées au superadmin, récupère `user.id` dans la réponse de connexion, puis exécute la commande suivante en remplaçant `1` par l’identifiant de ton compte de test. Elle utilise les mêmes paramètres MySQL que l’API.
 
 ```bash
 npm run grant:superuser -- 1
@@ -93,8 +107,8 @@ Les tests couvrent la dernière place disponible, les permissions et le renouvel
 
 | Erreur | Vérification |
 | --- | --- |
-| `ECONNREFUSED` sur le port `3306` | Vérifie que MySQL tourne et accepte les connexions TCP sur ce port. |
-| `ER_ACCESS_DENIED_ERROR` | Vérifie que le compte MySQL et son mot de passe correspondent à la configuration de l’API. |
-| `ER_BAD_DB_ERROR` | Vérifie que la base `evenementsportif` existe sur le serveur auquel l’API se connecte. |
+| `ECONNREFUSED` sur le port MySQL | Vérifie que MySQL tourne sur l’adresse et le port de `DB_HOST` et `DB_PORT`. |
+| `ER_ACCESS_DENIED_ERROR` | Vérifie `DB_USER` et `DB_PASSWORD` dans `.env`. |
+| `ER_BAD_DB_ERROR` | Vérifie que la base indiquée par `DB_NAME` existe sur le serveur MySQL. |
 | `EADDRINUSE` sur le port `3000` | Libère le port occupé avant de relancer l’API. |
 | `La clé JWT_SECRET est manquante.` | Vérifie le nom de la variable et l’emplacement de `.env`, puis redémarre l’API. |

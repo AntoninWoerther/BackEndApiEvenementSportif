@@ -6,6 +6,7 @@ import { EvenementEntity } from '../../../../profile/evenement/infra/persistance
 import type { CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
 import type { EventParticipant } from '../../../domain/event-participant';
 import { ReservationEntity } from '../entities/reservation.entity';
+import { WaitlistEntryEntity } from '../entities/waitlist-entry.entity';
 
 export const findReservationParticipantEmails = async (
     reservations: Repository<ReservationEntity>,
@@ -74,6 +75,7 @@ export const typeormReservationGateway: ReservationGateway = {
                 }
 
                 const reservation = await reservations.save(reservations.create({ evenementId, userId }));
+                await manager.getRepository(WaitlistEntryEntity).delete({ evenementId, userId });
                 return { status: 'created', reservation };
             });
         } catch (error) {

@@ -23,8 +23,13 @@ import { makeCancelReservationUseCase } from './reservation/app/usecases/cancel-
 import { makeCreateReservationUseCase } from './reservation/app/usecases/create-reservation.usecase';
 import { makeGetEventParticipantsUseCase } from './reservation/app/usecases/get-event-participants.usecase';
 import { makeGetMyReservationsUseCase } from './reservation/app/usecases/get-my-reservations.usecase';
+import { makeJoinWaitlistUseCase } from './reservation/app/usecases/join-waitlist.usecase';
+import { makeLeaveWaitlistUseCase } from './reservation/app/usecases/leave-waitlist.usecase';
+import { makeListWaitlistUseCase } from './reservation/app/usecases/list-waitlist.usecase';
+import { makeMoveWaitlistEntryUpUseCase } from './reservation/app/usecases/move-waitlist-entry-up.usecase';
 import { makeRemoveEventParticipantUseCase } from './reservation/app/usecases/remove-event-participant.usecase';
 import { typeormReservationGateway } from './reservation/infra/persistance/repositories/typeorm-reservation.gateway';
+import { typeormWaitlistGateway } from './reservation/infra/persistance/repositories/typeorm-waitlist.gateway';
 import { createReservationRouter } from './reservation/presentation/routes/reservation.route';
 import { createChangePasswordUseCase } from './profile/user/app/usecases/change-password.usecase';
 import { makeChangeUserAccountStatusUseCase } from './profile/user/app/usecases/change-user-account-status.usecase';
@@ -106,6 +111,10 @@ app.use('/', createReservationRouter({
   getMyReservations,
   getEventParticipants,
   removeEventParticipant,
+  joinWaitlist: makeJoinWaitlistUseCase(typeormWaitlistGateway),
+  leaveWaitlist: makeLeaveWaitlistUseCase(typeormWaitlistGateway),
+  listWaitlist: makeListWaitlistUseCase(typeormWaitlistGateway),
+  moveWaitlistEntryUp: makeMoveWaitlistEntryUpUseCase(typeormWaitlistGateway),
   authMiddleware,
   loadUserPermissions
 }));

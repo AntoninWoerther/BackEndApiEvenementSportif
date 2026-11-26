@@ -6,12 +6,20 @@ import type { CancelReservationUseCase } from '../../app/usecases/cancel-reserva
 import type { CreateReservationUseCase } from '../../app/usecases/create-reservation.usecase';
 import type { GetEventParticipantsUseCase } from '../../app/usecases/get-event-participants.usecase';
 import type { GetMyReservationsUseCase } from '../../app/usecases/get-my-reservations.usecase';
+import type { JoinWaitlistUseCase } from '../../app/usecases/join-waitlist.usecase';
+import type { LeaveWaitlistUseCase } from '../../app/usecases/leave-waitlist.usecase';
+import type { ListWaitlistUseCase } from '../../app/usecases/list-waitlist.usecase';
+import type { MoveWaitlistEntryUpUseCase } from '../../app/usecases/move-waitlist-entry-up.usecase';
 import type { RemoveEventParticipantUseCase } from '../../app/usecases/remove-event-participant.usecase';
 import {
     cancelReservationController,
     createReservationController,
     getEventParticipantsController,
     getMyReservationsController,
+    joinWaitlistController,
+    leaveWaitlistController,
+    listWaitlistController,
+    moveWaitlistEntryUpController,
     removeEventParticipantController
 } from '../controllers/reservation.controller';
 
@@ -21,6 +29,10 @@ interface ReservationRouteDependencies {
     getMyReservations: GetMyReservationsUseCase;
     getEventParticipants: GetEventParticipantsUseCase;
     removeEventParticipant: RemoveEventParticipantUseCase;
+    joinWaitlist: JoinWaitlistUseCase;
+    leaveWaitlist: LeaveWaitlistUseCase;
+    listWaitlist: ListWaitlistUseCase;
+    moveWaitlistEntryUp: MoveWaitlistEntryUpUseCase;
     authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
 }
@@ -31,6 +43,10 @@ export const createReservationRouter = ({
     getMyReservations,
     getEventParticipants,
     removeEventParticipant,
+    joinWaitlist,
+    leaveWaitlist,
+    listWaitlist,
+    moveWaitlistEntryUp,
     authMiddleware,
     loadUserPermissions
 }: ReservationRouteDependencies) => {
@@ -52,6 +68,16 @@ export const createReservationRouter = ({
         loadUserPermissions,
         requireUserPermission(USER_PERMISSIONS.REMOVE_EVENT_PARTICIPANTS),
         removeEventParticipantController(removeEventParticipant)
+    );
+
+    router.post('/evenements/:evenementId/waitlist', authMiddleware, joinWaitlistController(joinWaitlist));
+    router.delete('/evenements/:evenementId/waitlist/me', authMiddleware, leaveWaitlistController(leaveWaitlist));
+    router.get('/evenements/:evenementId/waitlist', authMiddleware, loadUserPermissions, listWaitlistController(listWaitlist));
+    router.patch(
+        '/evenements/:evenementId/waitlist/:entryId/move-up',
+        authMiddleware,
+        loadUserPermissions,
+        moveWaitlistEntryUpController(moveWaitlistEntryUp)
     );
 
     return router;

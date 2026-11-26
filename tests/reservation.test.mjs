@@ -5,6 +5,7 @@ import { EvenementEntity } from '../src/profile/evenement/infra/persistance/enti
 import { makeCreateReservationUseCase } from '../src/reservation/app/usecases/create-reservation.usecase.ts';
 import { makeGetMyReservationsUseCase } from '../src/reservation/app/usecases/get-my-reservations.usecase.ts';
 import { ReservationEntity } from '../src/reservation/infra/persistance/entities/reservation.entity.ts';
+import { WaitlistEntryEntity } from '../src/reservation/infra/persistance/entities/waitlist-entry.entity.ts';
 import { typeormReservationGateway } from '../src/reservation/infra/persistance/repositories/typeorm-reservation.gateway.ts';
 import { getMyReservationsController } from '../src/reservation/presentation/controllers/reservation.controller.ts';
 
@@ -12,7 +13,7 @@ const createReservation = makeCreateReservationUseCase(typeormReservationGateway
 const eventId = 10;
 const capacity = 2;
 
-function seedEvent(t, date = '2029-06-03', cancelledAt = null) {
+function seedEvent(t, date = '2029-06-03', cancelledAt = null, waitlist = []) {
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2029-06-01T22:00:00Z') });
     const event = { id: eventId, capacity, date, cancelledAt };
     const reservations = [{ id: 1, evenementId: eventId, userId: 20 }];
@@ -37,6 +38,12 @@ function seedEvent(t, date = '2029-06-03', cancelledAt = null) {
                 const reservation = { ...input, id: reservations.length + 1 };
                 reservations.push(reservation);
                 return reservation;
+            }
+        }],
+        [WaitlistEntryEntity, {
+            async delete({ evenementId, userId }) {
+                const index = waitlist.findIndex(entry => entry.evenementId === evenementId && entry.userId === userId);
+                if (index !== -1) waitlist.splice(index, 1);
             }
         }]
     ]);
@@ -80,6 +87,15 @@ test('une deuxième inscription du même utilisateur laisse la dernière place l
         errorid: 'RESERVATION_001'
     });
     assert.equal(reservations.length, 1);
+});
+
+test('une réservation confirmée retire uniquement l’entrée en attente du même utilisateur', async t => {
+    const otherEntry = { evenementId: eventId, userId: 22 };
+    const waitlist = [{ evenementId: eventId, userId: 21 }, otherEntry];
+    seedEvent(t, '2029-06-03', null, waitlist);
+
+    await createReservation({ evenementId: eventId, userId: 21 });
+    assert.deepEqual(waitlist, [otherEntry]);
 });
 
 test('les inscriptions à un événement passé sont closes dès minuit à Paris', async t => {

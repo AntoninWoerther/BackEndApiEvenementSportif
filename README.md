@@ -217,10 +217,11 @@ Un nouveau compte reçoit les permissions `1`, `2` et `4`, soit la valeur totale
 | `256` | `REACTIVATE_ACCOUNT` | Réactiver un compte suspendu. Réservé aux superadmins. | `PATCH /users/<id>/reactivate` |
 | `512` | `VIEW_OTHER_EVENT_PARTICIPANTS` | Consulter le nom et le prénom des inscrits aux événements des autres. Le créateur peut déjà consulter les inscrits à son propre événement. | `GET /evenements/<id>/participants` |
 | `1024` | `CANCEL_OTHER_EVENTS` | Annuler un événement créé par un autre utilisateur. Le créateur peut annuler son propre événement. | `PATCH /evenements/<id>/cancel` |
+| `2048` | `MANAGE_OTHER_EVENT_WAITLISTS` | Consulter et réordonner les files d’attente des autres créateurs. Le créateur peut gérer sa propre file. | `GET /evenements/<id>/waitlist` et `PATCH /evenements/<id>/waitlist/<idEntree>/move-up` |
 
 ### Attribuer et retirer un droit dans Postman ou Bruno
 
-Utilise un superadmin créé à l’étape 2 du parcours 3 et un compte ordinaire distinct. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512` et `1024`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour les tests ci-dessous, récupère `user.id` dans la réponse de connexion du compte ordinaire.
+Utilise un superadmin créé à l’étape 2 du parcours 3 et un compte ordinaire distinct. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512`, `1024` et `2048`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour les tests ci-dessous, récupère `user.id` dans la réponse de connexion du compte ordinaire.
 
 1. Avec le token du compte ordinaire, envoie `GET /evenements/<id>/participants` sur un événement créé par un autre compte. Tu dois recevoir `403` avec le code `AUTH_006`.
 2. Avec le token du superadmin, envoie `PATCH /users/<idUtilisateur>/permissions` avec le corps JSON `{"permissions": 512}`. Pour un compte ayant les droits par défaut, la réponse `200` contient `permissions: 519` car le droit `512` s’ajoute aux droits existants.
@@ -236,6 +237,17 @@ Avec l’access token du créateur ou d’un compte autorisé par le droit `1024
 ```
 
 L’API renvoie `200`. Le motif apparaît dans `description` et la date d’annulation dans `cancelledAt`. Chaque inscrit reçoit un mail simulé dans le terminal de l’API. Une nouvelle inscription renvoie `409` (`EVENEMENT_009`) et les réservations existantes affichent `evenement.status` à `cancelled`. Le nettoyage horaire supprime l’événement et ses réservations au premier passage après cinq jours depuis l’annulation.
+
+### Tester la file d’attente
+
+Crée un événement à une place et réserve cette place avec un premier compte. Utilise l’`accessToken` du compte indiqué pour chaque requête. Laisse le corps vide pour les quatre routes de la file.
+
+1. Avec chacun de deux autres comptes, envoie `POST /evenements/<id>/waitlist`. Tu dois recevoir `201` avec l’`id` de l’entrée et sa `position`.
+2. Avec le token du créateur, envoie `GET /evenements/<id>/waitlist`. La réponse `200` affiche les entrées dans l’ordre, avec leur `id`, leur `position`, leur `name` et leur `firstname`. Pour déléguer l’accès à la file, attribue le droit `2048` avec `PATCH /users/<idUtilisateur>/permissions` et le corps `{"permissions": 2048}`.
+3. Avec le token du créateur ou de la personne qui a reçu le droit `2048`, envoie `PATCH /evenements/<id>/waitlist/<idEntree>/move-up` en utilisant l’`id` de la deuxième entrée. La réponse `200` affiche sa nouvelle position `1`.
+4. Avec le token d’une personne en file, envoie `DELETE /evenements/<id>/waitlist/me`. La réponse `200` confirme son retrait.
+
+Une montée change uniquement l’ordre de la file. La réservation reste une action distincte via `POST /evenements/<id>/reservations`.
 
 ## Lancer les tests automatisés
 

@@ -8,6 +8,7 @@ import { UserAccountStatusChangeEntity } from '../profile/user/infra/persistance
 import { RefreshTokenEntity } from '../auth/infra/persistance/entities/refresh-token.entity';
 import { AuthSessionEventEntity } from '../auth/infra/persistance/entities/auth-session-event.entity';
 import { ReservationEntity } from '../reservation/infra/persistance/entities/reservation.entity';
+import { WaitlistEntryEntity } from '../reservation/infra/persistance/entities/waitlist-entry.entity';
 
 const port = Number(process.env.DB_PORT ?? 3306);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -29,7 +30,8 @@ export const db = new DataSource({
         RefreshTokenEntity,
         AuthSessionEventEntity,
         EvenementEntity,
-        ReservationEntity
+        ReservationEntity,
+        WaitlistEntryEntity
     ],
 
     synchronize: true,

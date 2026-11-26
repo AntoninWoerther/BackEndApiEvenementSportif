@@ -38,7 +38,6 @@ function createAuthTestApp(refresh, logout) {
 }
 
 async function request(app, method, path, { body = '', headers = {} } = {}) {
-    // Exercise Express's HTTP handlers without opening a network port.
     const server = createServer(app);
     let response = '';
     const socket = new Duplex({

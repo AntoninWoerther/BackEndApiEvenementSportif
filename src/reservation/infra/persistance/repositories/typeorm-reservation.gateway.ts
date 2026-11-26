@@ -84,7 +84,6 @@ export const typeormReservationGateway: ReservationGateway = {
                     return { status: 'already-registered' };
                 }
 
-                // The locked event still exists at insertion, so this refers to the user.
                 if (error.driverError.code === 'ER_NO_REFERENCED_ROW_2') {
                     return { status: 'user-not-found' };
                 }

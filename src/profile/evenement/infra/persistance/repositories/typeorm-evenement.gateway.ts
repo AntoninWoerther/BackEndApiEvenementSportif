@@ -32,7 +32,6 @@ const readEvenementsWithAvailability = async (
 ): Promise<EvenementWithAvailability[]> => {
     const { entities, raw } = await query.getRawAndEntities<{ reservationCount: number | string }>();
 
-    // The subquery counts reservations without adding rows to the event result.
     return entities.map((evenement, index) => ({
         ...evenement,
         remainingPlaces: evenement.cancelledAt ? 0 : getRemainingPlaces(evenement.capacity, Number(raw[index].reservationCount))
@@ -125,7 +124,6 @@ export const typeormEvenementGateway: EvenementGateway = {
     updateDetails(evenementId, userId, input, scope) {
         return db.transaction<UpdateEvenementDetailsResult>('READ COMMITTED', async manager => {
             const events = manager.getRepository(EvenementEntity);
-            // Reservation creation takes the same lock before checking capacity.
             const evenement = await events.findOne({
                 where: { id: evenementId },
                 lock: { mode: 'pessimistic_write' }

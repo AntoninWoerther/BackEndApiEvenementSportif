@@ -28,7 +28,6 @@ export const typeormEvenementReminderGateway: EvenementReminderGateway = {
     },
     prepareReminder(evenementId, date) {
         return db.transaction<EvenementReminderEvent | null>('READ COMMITTED', async manager => {
-            // Recheck the date and status while holding the same lock as bookings and cancellations.
             const event = await manager.getRepository(EvenementEntity).findOne({
                 where: { id: evenementId, date, cancelledAt: IsNull() },
                 lock: { mode: 'pessimistic_write' }

@@ -45,7 +45,6 @@ export const errorMiddleware: ErrorRequestHandler = (error: unknown, req, res, n
         return res.status(statusCode).json(presentHttpError(appError, statusCode));
     }
 
-    // Log the call stack without copying request data or SQL parameters from error messages.
     console.error('Unhandled request error', {
         method: req.method,
         route: req.route?.path,

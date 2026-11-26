@@ -48,7 +48,6 @@ function seedEvent(t, date = '2029-06-03', cancelledAt = null, waitlist = []) {
         }]
     ]);
 
-    // Model concurrent transactions waiting for the write lock on the same event.
     let previousTransaction = Promise.resolve();
     t.mock.method(db, 'transaction', (isolation, run) => {
         assert.equal(isolation, 'READ COMMITTED');

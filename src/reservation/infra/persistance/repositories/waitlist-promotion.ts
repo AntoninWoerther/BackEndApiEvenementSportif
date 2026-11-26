@@ -8,7 +8,6 @@ import { WaitlistEntryEntity } from '../entities/waitlist-entry.entity';
 
 type WaitlistEvent = Pick<Evenement, 'id' | 'date' | 'description' | 'cancelledAt' | 'capacity'>;
 
-// The caller holds the event's write lock until these reservations and queue changes commit.
 export const promoteWaitlistForLockedEvent = async (
     manager: EntityManager,
     event: WaitlistEvent,

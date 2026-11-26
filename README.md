@@ -63,7 +63,7 @@ npm run dev
 
 Une fois la connexion à MySQL établie, le terminal affiche `Server is running on http://localhost:3000`. Le serveur redémarre automatiquement quand tu modifies un fichier dans `src`. Pour l’arrêter, utilise `Ctrl+C`.
 
-Pour vérifier le démarrage, envoie `GET http://localhost:3000/evenements` dans Bruno ou lance cette commande dans un deuxième terminal.
+Pour vérifier le démarrage, envoie `GET http://localhost:3000/evenements` dans Postman ou Bruno. Tu peux aussi lancer cette commande dans un deuxième terminal.
 
 ```bash
 curl -i http://localhost:3000/evenements
@@ -71,9 +71,22 @@ curl -i http://localhost:3000/evenements
 
 Tu dois recevoir un statut `200` avec un tableau JSON. Sur une base neuve, le tableau est vide (`[]`).
 
-## 5. Tester la connexion dans Bruno
+## 5. Tester l’API avec Postman ou Bruno
 
-1. Envoie `POST http://localhost:3000/` avec un corps au format JSON.
+### Configuration dans Postman
+
+1. Utilise l’application Postman sur ton ordinateur. Si tu utilises la version web, sélectionne le **Desktop Agent** pour accéder à `localhost`. [Documentation Postman sur les agents](https://learning.postman.com/docs/getting-started/basics/about-postman-agent/)
+2. Crée une requête HTTP, choisis la méthode et saisis l’URL. Si la requête contient du JSON, sélectionne **Body → raw → JSON**, puis colle le corps. [Documentation Postman sur le corps des requêtes](https://learning.postman.com/docs/use/send-requests/create-requests/parameters/)
+3. Pour une route protégée, sélectionne **Authorization → Bearer Token** et colle la valeur de `accessToken` dans le champ **Token**. Clique sur **Send** pour envoyer la requête. [Documentation Postman sur le Bearer Token](https://learning.postman.com/docs/use/send-requests/authorization/authorization-types/)
+
+### Configuration dans Bruno
+
+1. Crée une collection, puis ajoute une **New Request** de type HTTP. Choisis la méthode et saisis l’URL. Si la requête contient du JSON, sélectionne **Body → JSON**, puis colle le corps. [Guide de démarrage de Bruno](https://github.com/usebruno/bruno-docs/blob/main/introduction/quick-start.mdx)
+2. Pour une route protégée, sélectionne **Auth → Bearer Token** et colle la valeur de `accessToken` dans le champ du jeton. Clique sur **Send** pour envoyer la requête. [Guide d’authentification de Bruno](https://blog.usebruno.com/api-authentication-a-bruno-handbook)
+
+### Parcours de connexion commun
+
+1. Crée un compte avec `POST http://localhost:3000/` et le corps JSON suivant. Cette requête et la connexion sont accessibles sans jeton.
 
    ```json
    {
@@ -86,14 +99,65 @@ Tu dois recevoir un statut `200` avec un tableau JSON. Sur une base neuve, le ta
 
    L’API répond `202`. Le mail d’inscription est simulé dans le terminal de l’API, sur une ligne qui commence par `[MAIL]`.
 
-2. Envoie `POST http://localhost:3000/auth/login` avec les mêmes valeurs pour `email` et `password` dans le corps JSON. La réponse `200` contient `user`, `accessToken` et `refreshToken`.
-3. Envoie `GET http://localhost:3000/auth/me` avec `Authorization: Bearer <accessToken>`. Tu dois recevoir le profil du compte connecté. Pour renouveler les jetons, envoie le `refreshToken` dans le corps JSON de `POST http://localhost:3000/auth/refresh`.
+2. Envoie `POST http://localhost:3000/auth/login` avec les mêmes identifiants. La réponse `200` contient `user`, `accessToken` et `refreshToken`.
 
-Si tu veux tester les actions réservées au superadmin, récupère `user.id` dans la réponse de connexion, puis exécute la commande suivante en remplaçant `1` par l’identifiant de ton compte de test. Elle utilise les mêmes paramètres MySQL que l’API.
+   ```json
+   {
+     "email": "camille@example.com",
+     "password": "MotDePasseLocal123!"
+   }
+   ```
 
-```bash
-npm run grant:superuser -- 1
-```
+3. Envoie `GET http://localhost:3000/auth/me` avec `accessToken` dans le champ Bearer Token et laisse le corps vide. La réponse `200` contient le profil du compte connecté.
+4. Pour renouveler tes jetons, envoie `POST http://localhost:3000/auth/refresh` en collant la valeur de `refreshToken` dans le corps ci-dessous. Utilise ensuite les deux nouveaux jetons renvoyés par l’API.
+
+   ```json
+   {"refreshToken": "colle_ici_le_jeton_de_renouvellement"}
+   ```
+
+### Parcours 1 · Créer et modifier son événement
+
+Dans les deux parcours, ajoute les chemins à `http://localhost:3000`. Pour les routes protégées, utilise le Bearer Token du compte qui effectue l’action. Si tu rejoues les parcours, choisis deux adresses e-mail de test encore inutilisées.
+
+1. **Créer le compte A.** Envoie `POST /` avec le corps d’inscription de Camille présenté ci-dessus. Résultat attendu `202`.
+2. **Se connecter.** Envoie `POST /auth/login` avec l’e-mail et le mot de passe de Camille. Résultat attendu `200`. Garde son `accessToken` pour les étapes suivantes.
+3. **Créer un événement.** Envoie `POST /evenements` avec le token de Camille et ce corps JSON. Choisis une date future au format `AAAA-MM-JJ` si celle de l’exemple est passée. Résultat attendu `201`. Note l’`id` de l’événement renvoyé et utilise-le à la place de `<id>`.
+
+   ```json
+   {
+     "description": "Match amical de volley",
+     "location": "Gymnase municipal",
+     "date": "2030-06-15",
+     "capacity": 1
+   }
+   ```
+
+4. **S’inscrire à l’événement.** Envoie `POST /evenements/<id>/reservations` avec le token de Camille et un corps vide. Résultat attendu `201`.
+5. **Modifier son événement.** Envoie `PATCH /evenements/<id>` avec le token de Camille et le corps JSON `{"location": "Salle omnisports"}`. Résultat attendu `200`. La réponse affiche le nouveau lieu.
+6. **Se retirer de l’événement.** Envoie `DELETE /evenements/<id>/reservations/me` avec le token de Camille et un corps vide. Résultat attendu `200`. La place est de nouveau disponible pour le parcours suivant.
+
+### Parcours 2 · Participer à l’événement d’un autre compte
+
+1. **Créer le compte B.** Envoie `POST /` avec le corps ci-dessous. Résultat attendu `202`.
+
+   ```json
+   {
+     "name": "Dubois",
+     "firstname": "Alex",
+     "email": "alex@example.com",
+     "password": "MotDePasseLocal456!"
+   }
+   ```
+
+2. **Se connecter.** Envoie `POST /auth/login` avec le corps JSON `{"email": "alex@example.com", "password": "MotDePasseLocal456!"}`. Résultat attendu `200`. Garde les deux jetons d’Alex et utilise son `accessToken` pour les requêtes protégées de ce parcours.
+3. **Afficher les événements.** Envoie `GET /evenements` avec un corps vide. Résultat attendu `200`. Retrouve l’événement du premier parcours à l’aide de son `id`. Le champ `location` affiche `Salle omnisports` et `remainingPlaces` vaut `1`.
+4. **S’inscrire à l’événement.** Envoie `POST /evenements/<id>/reservations` avec le token d’Alex et un corps vide. Résultat attendu `201`.
+5. **Tenter de modifier l’événement de Camille.** Envoie `PATCH /evenements/<id>` avec le token d’Alex et le corps JSON `{"location": "Terrain extérieur"}`. Résultat attendu `403` avec le code `EVENEMENT_006`, car Alex n’a pas le droit de modifier les événements d’un autre créateur.
+6. **Se déconnecter.** Envoie `POST /auth/logout` avec le corps JSON ci-dessous et la valeur du `refreshToken` d’Alex. Résultat attendu `200`. Pour vérifier la déconnexion, rejoue `GET /auth/me` avec son dernier `accessToken`. La requête doit renvoyer `401`.
+
+   ```json
+   {"refreshToken": "colle_ici_le_jeton_de_renouvellement_d_alex"}
+   ```
 
 ## 6. Permissions et valeurs
 
@@ -113,9 +177,15 @@ Un nouveau compte reçoit les permissions `1`, `2` et `4`, soit la valeur totale
 | `512` | `VIEW_OTHER_EVENT_PARTICIPANTS` | Consulter le nom et le prénom des inscrits aux événements des autres. Le créateur peut déjà consulter les inscrits à son propre événement. | `GET /evenements/<id>/participants` |
 | `1024` | `CANCEL_OTHER_EVENTS` | Annuler un événement créé par un autre utilisateur. Le créateur peut annuler son propre événement. | `PATCH /evenements/<id>/cancel` |
 
-### Attribuer et retirer un droit dans Bruno
+### Attribuer et retirer un droit dans Postman ou Bruno
 
-Connecte-toi avec deux comptes de test distincts, un superadmin et un utilisateur ordinaire. Récupère `user.id` dans la réponse de connexion du compte ordinaire. Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512` et `1024`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour créer le compte de test superadmin, utilise la commande `grant:superuser` indiquée à l’étape précédente.
+Pour les tests d’administration, prépare deux comptes de test distincts. Récupère `user.id` dans la réponse de connexion du compte à promouvoir, puis exécute cette commande en remplaçant `1` par cet identifiant.
+
+```bash
+npm run grant:superuser -- 1
+```
+
+Le superadmin peut attribuer ou retirer les droits `1`, `2`, `4`, `8`, `32`, `64`, `512` et `1024`, un par requête. Les valeurs `16`, `128` et `256` sont réservées au superadmin. Pour les tests ci-dessous, récupère `user.id` dans la réponse de connexion du compte ordinaire.
 
 1. Avec le token du compte ordinaire, envoie `GET /evenements/<id>/participants` sur un événement créé par un autre compte. Tu dois recevoir `403` avec le code `AUTH_006`.
 2. Avec le token du superadmin, envoie `PATCH /users/<idUtilisateur>/permissions` avec le corps JSON `{"permissions": 512}`. Pour un compte ayant les droits par défaut, la réponse `200` contient `permissions: 519` car le droit `512` s’ajoute aux droits existants.

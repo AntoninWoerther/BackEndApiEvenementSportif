@@ -73,11 +73,9 @@ test('un utilisateur ordinaire ne peut pas modifier les permissions d’un autre
     const { permissions, changes } = seedUsers(t);
 
     await assert.rejects(grant(userId, anotherUserId, UPDATE_OTHER_EVENTS), {
-        statusCode: 403,
         errorid: 'AUTH_006'
     });
     await assert.rejects(revoke(userId, anotherUserId, USER_PERMISSIONS.UPDATE_EVENT), {
-        statusCode: 403,
         errorid: 'AUTH_006'
     });
     assert.equal(permissions.get(anotherUserId), DEFAULT_USER_PERMISSIONS);
@@ -93,7 +91,6 @@ test('la suspension et la réactivation restent réservées au superadmin', asyn
     }
     for (const permission of [SUPERUSER, SUSPEND_ACCOUNT, REACTIVATE_ACCOUNT]) {
         await assert.rejects(grant(superuserId, userId, permission), {
-            statusCode: 400,
             errorid: 'USER_006'
         });
     }

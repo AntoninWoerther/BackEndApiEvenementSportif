@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class IncorrectCurrentPasswordError extends AppError {
     constructor() {
-        super('L’ancien mot de passe est incorrect.', 403, 'USER_004');
+        super('L’ancien mot de passe est incorrect.', 'USER_004');
     }
 }

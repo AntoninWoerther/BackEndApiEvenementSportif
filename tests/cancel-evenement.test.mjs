@@ -73,7 +73,7 @@ test('le créateur annule son événement, affiche le motif et notifie chacun de
     const response = { status(code) { assert.equal(code, 200); return this; }, json: body => body };
     const request = { params: { id: '10' }, user: { id: 20 }, body: { reason: ` ${reason} ` } };
 
-    await assert.rejects(controller({ ...request, body: { reason: ' ' } }, response), { statusCode: 400 });
+    await assert.rejects(controller({ ...request, body: { reason: ' ' } }, response), { errorid: 'ERR_VALI_400' });
     const result = await controller(request, response);
     assert.equal(result.description, reason);
     assert.deepEqual(result.cancelledAt, now);
@@ -84,8 +84,8 @@ test('le créateur annule son événement, affiche le motif et notifie chacun de
         `[MAIL] À b@example.test | L’événement n°10 du 2029-06-09 à Gymnase est annulé. Motif : ${reason}`
     ]);
 
-    await assert.rejects(controller(request, response), { statusCode: 409, errorid: 'EVENEMENT_009' });
-    await assert.rejects(makeDeleteEvenementUseCase(typeormEvenementGateway)(10, 20), { statusCode: 409, errorid: 'EVENEMENT_009' });
+    await assert.rejects(controller(request, response), { errorid: 'EVENEMENT_009' });
+    await assert.rejects(makeDeleteEvenementUseCase(typeormEvenementGateway)(10, 20), { errorid: 'EVENEMENT_009' });
     assert.equal(log.mock.callCount(), 2);
 });
 
@@ -96,7 +96,7 @@ test('l’annulation de l’événement d’un autre créateur exige le droit 10
     assert.equal(isGrantableUserPermission(permission), true);
 
     await assert.rejects(cancelEvenement(10, 21, reason, USER_PERMISSIONS.UPDATE_OTHER_EVENTS), {
-        statusCode: 403, errorid: 'EVENEMENT_008'
+        errorid: 'EVENEMENT_008'
     });
     assert.equal(event.cancelledAt, null);
     assert.equal(loadRecipients.mock.callCount(), 0);

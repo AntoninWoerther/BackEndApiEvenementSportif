@@ -73,7 +73,6 @@ test('deux demandes simultanées pour la dernière place donnent une seule rése
     const rejected = results.filter(result => result.status === 'rejected');
     assert.equal(confirmed.length, 1);
     assert.equal(rejected.length, 1);
-    assert.equal(rejected[0].reason.statusCode, 409);
     assert.equal(rejected[0].reason.errorid, 'RESERVATION_002');
     assert.equal(reservations.length, capacity);
     assert.deepEqual(reservations[1], confirmed[0].value);
@@ -83,7 +82,6 @@ test('une deuxième inscription du même utilisateur laisse la dernière place l
     const reservations = seedEvent(t);
 
     await assert.rejects(createReservation({ evenementId: eventId, userId: 20 }), {
-        statusCode: 409,
         errorid: 'RESERVATION_001'
     });
     assert.equal(reservations.length, 1);
@@ -102,7 +100,6 @@ test('les inscriptions à un événement passé sont closes dès minuit à Paris
     const reservations = seedEvent(t, '2029-06-01');
 
     await assert.rejects(createReservation({ evenementId: eventId, userId: 21 }), {
-        statusCode: 409,
         errorid: 'RESERVATION_005'
     });
     assert.equal(reservations.length, 1);
@@ -121,7 +118,6 @@ test('un événement annulé refuse toute nouvelle inscription même si sa date 
     const reservations = seedEvent(t, '2029-06-03', new Date('2029-06-01T20:00:00Z'));
 
     await assert.rejects(createReservation({ evenementId: eventId, userId: 21 }), {
-        statusCode: 409,
         errorid: 'EVENEMENT_009'
     });
     assert.equal(reservations.length, 1);

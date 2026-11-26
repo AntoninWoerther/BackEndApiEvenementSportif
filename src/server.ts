@@ -62,7 +62,7 @@ import { createAuthRouter } from './auth/presentation/routes/auth.route';
 import { db } from './core/dataBase.config';
 import { errorMiddleware } from './core/middleware/erreur.middleware';
 import { startHourlyJob } from './core/scheduling/hourly-job';
-import { AppError } from './core/http/error.response';
+import { AppError } from './core/errors/app.error';
 import { registerSignupEmailListeners } from './profile/user/infra/mailer/signup-email.listener';
 import { registerUserDeletionEmailListener } from './profile/user/infra/mailer/user-deletion-email.listener';
 
@@ -143,7 +143,7 @@ app.use('/auth', createAuthRouter({
 }));
 
 app.use((_req, _res, next) => {
-  next(new AppError('Route introuvable.', 404, 'ERR_ROUTE_NOT_FOUND'));
+  next(new AppError('Route introuvable.', 'ERR_ROUTE_NOT_FOUND'));
 });
 app.use(errorMiddleware);
 

@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class EvenementDeletionForbiddenError extends AppError {
     constructor() {
-        super('Seul le créateur peut supprimer cet événement.', 403, 'EVENEMENT_004');
+        super('Seul le créateur peut supprimer cet événement.', 'EVENEMENT_004');
     }
 }

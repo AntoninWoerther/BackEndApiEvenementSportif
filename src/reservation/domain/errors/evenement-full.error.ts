@@ -1,7 +1,7 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 export class EvenementFullError extends AppError {
     constructor() {
-        super('Cet événement est complet.', 409, 'RESERVATION_002');
+        super('Cet événement est complet.', 'RESERVATION_002');
     }
 }

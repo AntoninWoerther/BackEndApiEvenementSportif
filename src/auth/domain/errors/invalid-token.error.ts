@@ -1,11 +1,10 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 
 export class InvalidTokenError extends AppError {
     constructor(message = 'Token invalide.') {
         super(
             message,
-            401,
             'AUTH_002'
         );
     }

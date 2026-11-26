@@ -1,11 +1,10 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 
 export class InvalidRefreshTokenError extends AppError {
     constructor() {
         super(
             'Le jeton de renouvellement est invalide.',
-            401,
             'AUTH_003'
         );
     }

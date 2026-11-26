@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class EvenementCreatorNotFoundError extends AppError {
     constructor() {
-        super('Le compte du créateur est introuvable.', 404, 'EVENEMENT_001');
+        super('Le compte du créateur est introuvable.', 'EVENEMENT_001');
     }
 }

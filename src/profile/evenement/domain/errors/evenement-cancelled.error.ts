@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class EvenementCancelledError extends AppError {
     constructor() {
-        super('Cet événement est annulé.', 409, 'EVENEMENT_009');
+        super('Cet événement est annulé.', 'EVENEMENT_009');
     }
 }

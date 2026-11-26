@@ -1,11 +1,10 @@
-import { AppError } from "../../../../core/http/error.response";
+import { AppError } from "../../../../core/errors/app.error";
 
 
 export class UserNotFound extends AppError {
     constructor() {
         super(
             'Utilisateur introuvable.',
-            404,
             'USER_001'
         );
     }

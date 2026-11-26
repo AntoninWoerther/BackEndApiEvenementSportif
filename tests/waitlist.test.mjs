@@ -91,14 +91,14 @@ const input = userId => ({ evenementId: 10, userId });
 
 test('les inscriptions en file restent distinctes des réservations et suivent l’ordre d’arrivée', async t => {
     const event = setup(t);
-    await assert.rejects(join(input(20)), { statusCode: 409, errorid: 'RESERVATION_001' });
+    await assert.rejects(join(input(20)), { errorid: 'RESERVATION_001' });
     const [first, second] = await Promise.all([join(input(21)), join(input(22))]);
     assert.deepEqual([first.position, second.position], [1, 2]);
-    await assert.rejects(join(input(21)), { statusCode: 409, errorid: 'WAITLIST_001' });
+    await assert.rejects(join(input(21)), { errorid: 'WAITLIST_001' });
     event.capacity = 2;
-    await assert.rejects(join(input(23)), { statusCode: 409, errorid: 'WAITLIST_002' });
+    await assert.rejects(join(input(23)), { errorid: 'WAITLIST_002' });
     await leave(input(21));
-    await assert.rejects(leave(input(21)), { statusCode: 404, errorid: 'WAITLIST_003' });
+    await assert.rejects(leave(input(21)), { errorid: 'WAITLIST_003' });
     assert.deepEqual(await list(10, 1, DEFAULT_USER_PERMISSIONS), [
         { id: second.id, position: 1, name: 'Martin', firstname: 'Joueur 22' }
     ]);
@@ -112,8 +112,8 @@ test('le créateur et le droit 2048 permettent de consulter et de remonter une e
     const permission = USER_PERMISSIONS.MANAGE_OTHER_EVENT_WAITLISTS;
     assert.equal(permission, 2048);
     assert.equal(isGrantableUserPermission(permission), true);
-    await assert.rejects(list(10, 2, DEFAULT_USER_PERMISSIONS), { statusCode: 403, errorid: 'AUTH_006' });
-    await assert.rejects(moveUp(10, third.id, 2, DEFAULT_USER_PERMISSIONS), { statusCode: 403, errorid: 'AUTH_006' });
+    await assert.rejects(list(10, 2, DEFAULT_USER_PERMISSIONS), { errorid: 'AUTH_006' });
+    await assert.rejects(moveUp(10, third.id, 2, DEFAULT_USER_PERMISSIONS), { errorid: 'AUTH_006' });
 
     assert.deepEqual(await moveUp(10, third.id, 1, DEFAULT_USER_PERMISSIONS), { id: third.id, position: 2 });
     assert.deepEqual((await list(10, 2, permission)).map(entry => entry.id), [first.id, third.id, second.id]);
@@ -125,8 +125,8 @@ test('le créateur et le droit 2048 permettent de consulter et de remonter une e
 test('un événement annulé ou passé ferme les nouvelles entrées en file', async t => {
     const event = setup(t);
     event.cancelledAt = new Date();
-    await assert.rejects(join(input(21)), { statusCode: 409, errorid: 'EVENEMENT_009' });
+    await assert.rejects(join(input(21)), { errorid: 'EVENEMENT_009' });
     event.cancelledAt = null;
     event.date = '2029-06-01';
-    await assert.rejects(join(input(21)), { statusCode: 409, errorid: 'RESERVATION_005' });
+    await assert.rejects(join(input(21)), { errorid: 'RESERVATION_005' });
 });

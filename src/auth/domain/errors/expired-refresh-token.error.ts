@@ -1,11 +1,10 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 
 export class ExpiredRefreshTokenError extends AppError {
     constructor() {
         super(
             'Le jeton de renouvellement a expiré.',
-            401,
             'AUTH_005'
         );
     }

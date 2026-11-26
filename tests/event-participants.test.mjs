@@ -31,7 +31,6 @@ test('les inscriptions d’un autre organisateur restent inaccessibles sans le d
     const permissions = otherUser.permissions | USER_PERMISSIONS.REMOVE_EVENT_PARTICIPANTS;
 
     await assert.rejects(getEventParticipants(10, { ...otherUser, permissions }), {
-        statusCode: 403,
         errorid: 'AUTH_006'
     });
     assert.equal(listEventParticipants.mock.callCount(), 0);
@@ -54,7 +53,6 @@ test('un événement sans inscription renvoie un tableau vide et un événement 
 
     assert.deepEqual(await getEventParticipants(10, defaultUser), []);
     await assert.rejects(getEventParticipants(99, defaultUser), {
-        statusCode: 404,
         errorid: 'EVENEMENT_003'
     });
     assert.equal(listEventParticipants.mock.callCount(), 1);

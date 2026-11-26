@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class UserEmailAlreadyExists extends AppError {
     constructor() {
-        super('Cette adresse e-mail est déjà utilisée.', 409, 'USER_002');
+        super('Cette adresse e-mail est déjà utilisée.', 'USER_002');
     }
 }

@@ -1,5 +1,5 @@
-import { ValidationError } from 'class-validator';
-import { AppError } from '../http/error.response';
+import type { ValidationError } from 'class-validator';
+import { AppError } from './app.error';
 
 export class ValidationFailedError extends AppError {
 
@@ -17,7 +17,6 @@ export class ValidationFailedError extends AppError {
 
         super(
             'Les données envoyées sont invalides.',
-            400,
             'ERR_VALI_400',
             { fields }
         );

@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class InvalidUserPermissionsError extends AppError {
     constructor() {
-        super('Valeur de permissions invalide.', 400, 'USER_006');
+        super('Valeur de permissions invalide.', 'USER_006');
     }
 }

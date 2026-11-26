@@ -64,7 +64,6 @@ test('une capacité inférieure au nombre d’inscrits refuse toute la modificat
     const { update } = setup(t);
 
     await assert.rejects(updateDetails(10, 20, { location: 'Terrain B', capacity: 2 }, UPDATE_EVENT), {
-        statusCode: 409,
         errorid: 'EVENEMENT_007'
     });
     assert.equal(update.mock.callCount(), 0);
@@ -74,9 +73,9 @@ test('le droit de modification distingue ses événements de ceux des autres', a
     const { update, countBy } = setup(t);
     const input = { capacity: 4 };
 
-    await assert.rejects(updateDetails(10, 21, input, UPDATE_EVENT), { statusCode: 403, errorid: 'EVENEMENT_006' });
-    await assert.rejects(updateDetails(10, 20, input, UPDATE_OTHER_EVENTS), { statusCode: 403, errorid: 'EVENEMENT_006' });
-    await assert.rejects(updateDetails(99, 20, input, UPDATE_EVENT), { statusCode: 404, errorid: 'EVENEMENT_003' });
+    await assert.rejects(updateDetails(10, 21, input, UPDATE_EVENT), { errorid: 'EVENEMENT_006' });
+    await assert.rejects(updateDetails(10, 20, input, UPDATE_OTHER_EVENTS), { errorid: 'EVENEMENT_006' });
+    await assert.rejects(updateDetails(99, 20, input, UPDATE_EVENT), { errorid: 'EVENEMENT_003' });
     assert.equal(countBy.mock.callCount(), 0);
     assert.equal(update.mock.callCount(), 0);
     assert.deepEqual(await updateDetails(10, 21, input, UPDATE_OTHER_EVENTS), { ...event, capacity: 4 });
@@ -88,7 +87,7 @@ test('les données vides, invalides et les champs hors périmètre sont refusés
     const request = { params: { id: '10' }, user: { id: 20, permissions: UPDATE_EVENT } };
 
     for (const body of [{}, { location: ' ' }, { description: null }, { capacity: 1.5 }, { capacity: 0 }, { date: '2030-05-09' }]) {
-        await assert.rejects(controller({ ...request, body }, {}), { statusCode: 400, errorid: 'ERR_VALI_400' });
+        await assert.rejects(controller({ ...request, body }, {}), { errorid: 'ERR_VALI_400' });
     }
     assert.equal(transaction.mock.callCount(), 0);
 });

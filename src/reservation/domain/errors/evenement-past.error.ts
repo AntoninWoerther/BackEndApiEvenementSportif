@@ -1,7 +1,7 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 export class EvenementPastError extends AppError {
     constructor() {
-        super('La date de cet événement est passée. Les inscriptions sont closes.', 409, 'RESERVATION_005');
+        super('La date de cet événement est passée. Les inscriptions sont closes.', 'RESERVATION_005');
     }
 }

@@ -1,7 +1,7 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 export class ReservationParticipantNotFoundError extends AppError {
     constructor() {
-        super('Ce participant n’est pas inscrit à cet événement.', 404, 'RESERVATION_004');
+        super('Ce participant n’est pas inscrit à cet événement.', 'RESERVATION_004');
     }
 }

@@ -13,12 +13,16 @@ import { makeAuthMiddleware } from '../src/auth/infra/gards/auth.middleware.ts';
 import { makeLoadUserPermissions } from '../src/auth/infra/gards/user-permissions.middleware.ts';
 import { createAuthRouter } from '../src/auth/presentation/routes/auth.route.ts';
 import { db } from '../src/core/dataBase.config.ts';
+import { AppError } from '../src/core/errors/app.error.ts';
 import { errorMiddleware } from '../src/core/middleware/erreur.middleware.ts';
+import { EvenementCapacityTooLowError } from '../src/profile/evenement/domain/errors/evenement-capacity-too-low.error.ts';
+import { EvenementNotFoundError } from '../src/profile/evenement/domain/errors/evenement-not-found.error.ts';
 import { makeGetUserByIdUseCase } from '../src/profile/user/app/usecases/get-user-by-id.usecase.ts';
 import { makeGetUsersUseCase } from '../src/profile/user/app/usecases/get-users.usecase.ts';
 import { DEFAULT_USER_PERMISSIONS, USER_PERMISSIONS } from '../src/profile/user/domain/permissions/user.permissions.ts';
 import { typeormUserGateway } from '../src/profile/user/infra/persistance/repositories/typeorm-user.gateway.ts';
 import { createUserRouter } from '../src/profile/user/presentation/routes/user.route.ts';
+import { InvalidWaitlistEntryIdError } from '../src/reservation/domain/errors/waitlist.errors.ts';
 
 function createAuthTestApp(refresh) {
     const app = express();
@@ -111,7 +115,41 @@ test('la validation du renouvellement utilise le format commun et inclut les cha
     const response = await request(createAuthTestApp(), 'POST', '/auth/refresh', { body: '{}', headers: jsonHeaders });
 
     assertError(response, 400, 'ERR_VALI_400');
-    assert.match(JSON.stringify(response.payload.fields), /refreshToken/);
+    const [field] = response.payload.fields.fields;
+    assert.equal(field.field, 'refreshToken');
+    assert.ok(field.constraints.some(({ constraint }) => constraint === 'isNotEmpty'));
+});
+
+test('le middleware choisit les statuts HTTP à partir des codes métier', async () => {
+    const errors = [
+        ['evenement-manquant', new EvenementNotFoundError(), 404, 'EVENEMENT_003'],
+        ['capacite-invalide', new EvenementCapacityTooLowError(), 409, 'EVENEMENT_007'],
+        ['entree-invalide', new InvalidWaitlistEntryIdError(), 400, 'WAITLIST_004']
+    ];
+    const app = express();
+    for (const [path, error] of errors) {
+        app.get(`/${path}`, () => { throw error; });
+    }
+    app.use(errorMiddleware);
+
+    for (const [path, error, status, idcode] of errors) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.statusCode, undefined);
+        const response = await request(app, 'GET', `/${path}`);
+        assertError(response, status, idcode);
+        assert.deepEqual(response.payload, { statusCode: status, idcode, message: error.message });
+    }
+});
+
+test('une erreur métier sans correspondance est masquée par le message interne générique', async t => {
+    t.mock.method(console, 'error', () => {});
+    const app = express();
+    app.get('/unmapped', () => { throw new AppError('Détail interne.', 'UNMAPPED_TEST'); });
+    app.use(errorMiddleware);
+
+    const response = await request(app, 'GET', '/unmapped');
+    assertError(response, 500, 'err-00-500');
+    assert.equal(response.payload.message, 'Erreur interne du serveur.');
 });
 
 test('une route protégée sans jeton renvoie le format commun', async () => {

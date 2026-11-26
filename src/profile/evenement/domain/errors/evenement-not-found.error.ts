@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class EvenementNotFoundError extends AppError {
     constructor() {
-        super('Événement introuvable.', 404, 'EVENEMENT_003');
+        super('Événement introuvable.', 'EVENEMENT_003');
     }
 }

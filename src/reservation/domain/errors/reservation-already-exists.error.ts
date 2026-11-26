@@ -1,7 +1,7 @@
-import { AppError } from '../../../core/http/error.response';
+import { AppError } from '../../../core/errors/app.error';
 
 export class ReservationAlreadyExistsError extends AppError {
     constructor() {
-        super('Vous êtes déjà inscrit à cet événement.', 409, 'RESERVATION_001');
+        super('Vous êtes déjà inscrit à cet événement.', 'RESERVATION_001');
     }
 }

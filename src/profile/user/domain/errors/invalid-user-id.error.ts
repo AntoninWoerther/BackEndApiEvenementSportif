@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class InvalidUserIdError extends AppError {
     constructor() {
-        super('Identifiant utilisateur invalide.', 400, 'USER_003');
+        super('Identifiant utilisateur invalide.', 'USER_003');
     }
 }

@@ -1,7 +1,7 @@
-import { AppError } from '../../../../core/http/error.response';
+import { AppError } from '../../../../core/errors/app.error';
 
 export class EvenementCapacityTooLowError extends AppError {
     constructor() {
-        super('La capacité ne peut pas être inférieure au nombre de personnes déjà inscrites.', 409, 'EVENEMENT_007');
+        super('La capacité ne peut pas être inférieure au nombre de personnes déjà inscrites.', 'EVENEMENT_007');
     }
 }

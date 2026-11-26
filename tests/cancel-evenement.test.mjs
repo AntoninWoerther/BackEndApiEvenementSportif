@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { IsNull, LessThanOrEqual } from 'typeorm';
-import { eventEmitter } from '../src/core/bus/event.emiter.ts';
 import { db } from '../src/core/dataBase.config.ts';
+import { makeNodeEventBus } from '../src/core/infra/bus/node-event-bus.ts';
 import { makeCancelEvenementUseCase } from '../src/profile/evenement/app/usecases/cancel-evenement.usecase.ts';
 import { makeCleanupEvenementsUseCase } from '../src/profile/evenement/app/usecases/cleanup-evenements.usecase.ts';
 import { makeDeleteEvenementUseCase } from '../src/profile/evenement/app/usecases/delete-evenement.usecase.ts';
@@ -15,7 +15,6 @@ import { cancelEvenementController } from '../src/profile/evenement/presentation
 import { isGrantableUserPermission, USER_PERMISSIONS } from '../src/profile/user/domain/permissions/user.permissions.ts';
 import { ReservationEntity } from '../src/reservation/infra/persistance/entities/reservation.entity.ts';
 
-const cancelEvenement = makeCancelEvenementUseCase(typeormEvenementGateway);
 const now = new Date('2029-06-06T12:00:00Z');
 const reason = 'Gymnase indisponible';
 
@@ -66,10 +65,9 @@ function seedEvent(t) {
 test('le créateur annule son événement, affiche le motif et notifie chacun des inscrits une seule fois', async t => {
     const { event, loadRecipients } = seedEvent(t);
     const log = t.mock.method(console, 'log', () => {});
-    registerEvenementCancellationEmailListener();
-    const listener = eventEmitter.listeners(EVENEMENT_EVENTS.CANCELLED).at(-1);
-    t.after(() => eventEmitter.off(EVENEMENT_EVENTS.CANCELLED, listener));
-    const controller = cancelEvenementController(cancelEvenement);
+    const bus = makeNodeEventBus();
+    registerEvenementCancellationEmailListener(bus);
+    const controller = cancelEvenementController(makeCancelEvenementUseCase(typeormEvenementGateway, bus));
     const response = { status(code) { assert.equal(code, 200); return this; }, json: body => body };
     const request = { params: { id: '10' }, user: { id: 20 }, body: { reason: ` ${reason} ` } };
 
@@ -91,6 +89,8 @@ test('le créateur annule son événement, affiche le motif et notifie chacun de
 
 test('l’annulation de l’événement d’un autre créateur exige le droit 1024', async t => {
     const { event, loadRecipients } = seedEvent(t);
+    const publish = t.mock.fn();
+    const cancelEvenement = makeCancelEvenementUseCase(typeormEvenementGateway, { publish });
     const permission = USER_PERMISSIONS.CANCEL_OTHER_EVENTS;
     assert.equal(permission, 1024);
     assert.equal(isGrantableUserPermission(permission), true);
@@ -100,9 +100,14 @@ test('l’annulation de l’événement d’un autre créateur exige le droit 10
     });
     assert.equal(event.cancelledAt, null);
     assert.equal(loadRecipients.mock.callCount(), 0);
+    assert.equal(publish.mock.callCount(), 0);
 
     const cancelled = await cancelEvenement(10, 21, reason, permission);
     assert.equal(cancelled.cancellationReason, reason);
+    assert.deepEqual(publish.mock.calls.map(call => call.arguments), [[EVENEMENT_EVENTS.CANCELLED, {
+        evenementId: 10, date: '2029-06-09', location: 'Gymnase', reason,
+        participantEmails: ['a@example.test', 'b@example.test']
+    }]]);
 });
 
 test('le nettoyage retient les événements annulés cinq jours depuis leur annulation', async t => {
@@ -110,11 +115,13 @@ test('le nettoyage retient les événements annulés cinq jours depuis leur annu
     const find = t.mock.fn(async () => []);
     t.mock.method(db, 'getRepository', () => ({ delete: remove, find }));
 
-    const cleanup = makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway);
+    const publish = t.mock.fn();
+    const cleanup = makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway, { publish });
     assert.equal(await cleanup(now), 1);
     assert.deepEqual(remove.mock.calls[0].arguments, [[
         { date: LessThanOrEqual('2029-05-30'), cancelledAt: IsNull() },
         { cancelledAt: LessThanOrEqual(new Date('2029-06-01T12:00:00Z')) }
     ]]);
     assert.deepEqual(find.mock.calls[0].arguments[0].where.cancelledAt, IsNull());
+    assert.equal(publish.mock.callCount(), 0);
 });

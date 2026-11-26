@@ -60,6 +60,10 @@ import { startRefreshTokenCleanupScheduler } from './auth/infra/scheduling/refre
 import { nodeTokenSecurityGateway } from './auth/infra/security/node-token-security.gateway';
 import { createAuthRouter } from './auth/presentation/routes/auth.route';
 import { db } from './core/dataBase.config';
+import { makeNodeEventBus } from './core/infra/bus/node-event-bus';
+import type { EvenementEvents } from './profile/evenement/domain/events/evenement.events';
+import type { UserEvents } from './profile/user/domain/events/user.events';
+import type { WaitlistEvents } from './reservation/domain/events/waitlist-promoted.event';
 import { errorMiddleware } from './core/middleware/erreur.middleware';
 import { startHourlyJob } from './core/scheduling/hourly-job';
 import { AppError } from './core/errors/app.error';
@@ -70,18 +74,19 @@ import { registerUserDeletionEmailListener } from './profile/user/infra/mailer/u
 
 const app = express();
 const port = 3000;
-const cancelEvenement = makeCancelEvenementUseCase(typeormEvenementGateway);
+const events = makeNodeEventBus<EvenementEvents & UserEvents & WaitlistEvents>();
+const cancelEvenement = makeCancelEvenementUseCase(typeormEvenementGateway, events);
 const createEvenement = makeCreateEvenementUseCase(typeormEvenementGateway);
 const deleteEvenement = makeDeleteEvenementUseCase(typeormEvenementGateway);
 const getEvenementById = makeGetEvenementByIdUseCase(typeormEvenementGateway);
 const getEvenements = makeGetEvenementsUseCase(typeormEvenementGateway);
-const updateEvenementDate = makeUpdateEvenementDateUseCase(typeormEvenementGateway);
-const updateEvenementDetails = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway);
+const updateEvenementDate = makeUpdateEvenementDateUseCase(typeormEvenementGateway, events);
+const updateEvenementDetails = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway, events);
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
-const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway);
+const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway, events);
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
 const getEventParticipants = makeGetEventParticipantsUseCase(typeormReservationGateway);
-const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
+const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway, events);
 const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway, bcryptPasswordHasherGateway);
 const suspendUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'SUSPEND');
 const reactivateUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'REACTIVATE');
@@ -120,8 +125,8 @@ app.use('/', createReservationRouter({
   loadUserPermissions
 }));
 app.use('/', createUserRouter({
-  createUser: makeCreateUserUseCase(typeormUserGateway, bcryptPasswordHasherGateway),
-  deleteUser: makeDeleteUserUseCase(typeormUserGateway),
+  createUser: makeCreateUserUseCase(typeormUserGateway, bcryptPasswordHasherGateway, events),
+  deleteUser: makeDeleteUserUseCase(typeormUserGateway, events),
   getUserById: makeGetUserByIdUseCase(typeormUserGateway),
   getUsers: makeGetUsersUseCase(typeormUserGateway),
   changePassword,
@@ -149,15 +154,15 @@ app.use(errorMiddleware);
 
 const startServer = async (): Promise<void> => {
   await db.initialize();
-  registerSignupEmailListeners(typeormUserGateway);
-  registerUserDeletionEmailListener();
-  registerEvenementCancellationEmailListener();
-  registerEvenementDateEmailListener(typeormReservationGateway);
-  registerEvenementDeletionWarningEmailListener();
-  registerEvenementReminderEmailListener();
-  registerWaitlistPromotionEmailListener();
-  startHourlyJob(makeSendEvenementRemindersUseCase(typeormEvenementReminderGateway), '[MAIL] Les rappels d’événements ont échoué.');
-  startEvenementCleanupScheduler(makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway));
+  registerSignupEmailListeners(events, typeormUserGateway);
+  registerUserDeletionEmailListener(events);
+  registerEvenementCancellationEmailListener(events);
+  registerEvenementDateEmailListener(events, typeormReservationGateway);
+  registerEvenementDeletionWarningEmailListener(events);
+  registerEvenementReminderEmailListener(events);
+  registerWaitlistPromotionEmailListener(events);
+  startHourlyJob(makeSendEvenementRemindersUseCase(typeormEvenementReminderGateway, events), '[MAIL] Les rappels d’événements ont échoué.');
+  startEvenementCleanupScheduler(makeCleanupEvenementsUseCase(typeormEvenementCleanupGateway, events));
   startRefreshTokenCleanupScheduler(makeCleanupRefreshTokensUseCase(typeormRefreshTokenGateway));
   app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);

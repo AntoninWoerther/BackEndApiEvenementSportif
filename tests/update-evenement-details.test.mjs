@@ -10,7 +10,6 @@ import { ReservationEntity } from '../src/reservation/infra/persistance/entities
 
 const event = { id: 10, creatorId: 20, description: 'Match amical', location: 'Terrain A', capacity: 8, date: '2030-05-08' };
 const { UPDATE_EVENT, UPDATE_OTHER_EVENTS } = USER_PERMISSIONS;
-const updateDetails = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway);
 
 function setup(t, registrations = 3) {
     let stored = { ...event };
@@ -36,11 +35,12 @@ function setup(t, registrations = 3) {
         assert.equal(isolation, 'READ COMMITTED');
         return run({ getRepository: entity => repositories.get(entity) });
     });
-    return { update, countBy, transaction };
+    const updateDetails = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway, { publish: t.mock.fn() });
+    return { update, countBy, transaction, updateDetails };
 }
 
 test('le créateur peut modifier uniquement le lieu puis la description et la capacité de son événement', async t => {
-    const { countBy } = setup(t);
+    const { countBy, updateDetails } = setup(t);
     const controller = updateEvenementDetailsController(updateDetails);
     const reply = {
         status(code) {
@@ -61,7 +61,7 @@ test('le créateur peut modifier uniquement le lieu puis la description et la ca
 });
 
 test('une capacité inférieure au nombre d’inscrits refuse toute la modification', async t => {
-    const { update } = setup(t);
+    const { update, updateDetails } = setup(t);
 
     await assert.rejects(updateDetails(10, 20, { location: 'Terrain B', capacity: 2 }, UPDATE_EVENT), {
         errorid: 'EVENEMENT_007'
@@ -70,7 +70,7 @@ test('une capacité inférieure au nombre d’inscrits refuse toute la modificat
 });
 
 test('le droit de modification distingue ses événements de ceux des autres', async t => {
-    const { update, countBy } = setup(t);
+    const { update, countBy, updateDetails } = setup(t);
     const input = { capacity: 4 };
 
     await assert.rejects(updateDetails(10, 21, input, UPDATE_EVENT), { errorid: 'EVENEMENT_006' });
@@ -82,7 +82,7 @@ test('le droit de modification distingue ses événements de ceux des autres', a
 });
 
 test('les données vides, invalides et les champs hors périmètre sont refusés avant la transaction', async t => {
-    const { transaction } = setup(t);
+    const { transaction, updateDetails } = setup(t);
     const controller = updateEvenementDetailsController(updateDetails);
     const request = { params: { id: '10' }, user: { id: 20, permissions: UPDATE_EVENT } };
 

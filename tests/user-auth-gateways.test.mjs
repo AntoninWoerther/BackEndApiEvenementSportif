@@ -6,7 +6,6 @@ import { createLoginUseCase } from '../src/auth/app/usecases/login.usecase.ts';
 import { verifyAccessToken } from '../src/auth/infra/security/access-token.security.ts';
 import { nodeTokenSecurityGateway } from '../src/auth/infra/security/node-token-security.gateway.ts';
 import { db } from '../src/core/dataBase.config.ts';
-import { eventEmitter } from '../src/core/bus/event.emiter.ts';
 import { createChangePasswordUseCase } from '../src/profile/user/app/usecases/change-password.usecase.ts';
 import { makeCreateUserUseCase } from '../src/profile/user/app/usecases/create-user.usecase.ts';
 import { USER_EVENTS } from '../src/profile/user/domain/events/user.events.ts';
@@ -49,13 +48,11 @@ test('les gateways injectés permettent l’inscription, la connexion et le chan
         assert.equal(entity, UserEntity);
         return repository;
     });
-    const onDuplicate = t.mock.fn();
-    eventEmitter.on(USER_EVENTS.USER_SIGNUP_DUPLICATE, onDuplicate);
-    t.after(() => eventEmitter.off(USER_EVENTS.USER_SIGNUP_DUPLICATE, onDuplicate));
+    const publish = t.mock.fn();
 
     const startSession = t.mock.fn(async () => {});
     const issueRefreshToken = createIssueRefreshTokenUseCase({ startSession }, nodeTokenSecurityGateway);
-    const createUser = makeCreateUserUseCase(typeormUserGateway, bcryptPasswordHasherGateway);
+    const createUser = makeCreateUserUseCase(typeormUserGateway, bcryptPasswordHasherGateway, { publish });
     const login = createLoginUseCase(typeormUserGateway, bcryptPasswordHasherGateway, nodeTokenSecurityGateway, issueRefreshToken);
     const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway, bcryptPasswordHasherGateway);
     const input = { name: 'Martin', firstname: 'Camille', email: 'camille@example.test', password: 'mot-de-passe-test' };
@@ -63,7 +60,10 @@ test('les gateways injectés permettent l’inscription, la connexion et le chan
     await createUser(input);
     assert.equal(await bcryptPasswordHasherGateway.verify(input.password, storedUser.hashedPassword), true);
     await createUser(input);
-    assert.deepEqual(onDuplicate.mock.calls.map(call => call.arguments), [[input.email]]);
+    assert.deepEqual(publish.mock.calls.map(call => call.arguments), [
+        [USER_EVENTS.USER_CREATED, input.email],
+        [USER_EVENTS.USER_SIGNUP_DUPLICATE, input.email]
+    ]);
 
     const result = await login({ email: input.email, password: input.password });
     assert.deepEqual(result.user, { id: 1, name: input.name, firstname: input.firstname });

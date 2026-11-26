@@ -6,3 +6,7 @@ export interface WaitlistPromotedEvent {
     date: string;
     participantEmails: string[];
 }
+
+export interface WaitlistEvents {
+    [WAITLIST_PROMOTED]: WaitlistPromotedEvent;
+}

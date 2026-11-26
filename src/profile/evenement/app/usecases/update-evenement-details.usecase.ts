@@ -1,4 +1,6 @@
+import type { EventPublisher } from '../../../../core/bus/event-bus';
 import { publishWaitlistPromotion } from '../../../../reservation/app/publish-waitlist-promotion';
+import type { WaitlistEvents } from '../../../../reservation/domain/events/waitlist-promoted.event';
 import { EvenementCapacityTooLowError } from '../../domain/errors/evenement-capacity-too-low.error';
 import { EvenementDetailsUpdateForbiddenError } from '../../domain/errors/evenement-details-update-forbidden.error';
 import { EvenementCancelledError } from '../../domain/errors/evenement-cancelled.error';
@@ -16,7 +18,8 @@ export type UpdateEvenementDetailsUseCase = (
 ) => Promise<Evenement>;
 
 export const makeUpdateEvenementDetailsUseCase = (
-    gateway: Pick<EvenementGateway, 'updateDetails'>
+    gateway: Pick<EvenementGateway, 'updateDetails'>,
+    events: EventPublisher<WaitlistEvents>
 ): UpdateEvenementDetailsUseCase => {
     return async (evenementId, userId, input, permissions) => {
         const scope = resolveEvenementUpdateScope(permissions);
@@ -24,7 +27,7 @@ export const makeUpdateEvenementDetailsUseCase = (
 
         switch (result.status) {
             case 'updated':
-                publishWaitlistPromotion(result.promotion);
+                publishWaitlistPromotion(events, result.promotion);
                 return result.evenement;
             case 'evenement-not-found':
                 throw new EvenementNotFoundError();

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { IsNull } from 'typeorm';
-import { eventEmitter } from '../src/core/bus/event.emiter.ts';
 import { db } from '../src/core/dataBase.config.ts';
+import { makeNodeEventBus } from '../src/core/infra/bus/node-event-bus.ts';
 import { makeSendEvenementRemindersUseCase } from '../src/profile/evenement/app/usecases/send-evenement-reminders.usecase.ts';
-import { EVENEMENT_EVENTS } from '../src/profile/evenement/domain/events/evenement.events.ts';
 import { registerEvenementReminderEmailListener } from '../src/profile/evenement/infra/mailer/evenement-reminder-email.listener.ts';
 import { EvenementEntity } from '../src/profile/evenement/infra/persistance/entities/evenement.entity.ts';
 import { typeormEvenementReminderGateway } from '../src/profile/evenement/infra/persistance/repositories/typeorm-evenement-reminder.gateway.ts';
@@ -66,12 +65,11 @@ function setup(t) {
     });
 
     const log = t.mock.method(console, 'log', () => {});
-    registerEvenementReminderEmailListener();
-    const listener = eventEmitter.listeners(EVENEMENT_EVENTS.REMINDER_DUE).at(-1);
-    t.after(() => eventEmitter.off(EVENEMENT_EVENTS.REMINDER_DUE, listener));
+    const bus = makeNodeEventBus();
+    registerEvenementReminderEmailListener(bus);
 
     const findDueEventIds = t.mock.fn(async () => [event.id]);
-    const remind = makeSendEvenementRemindersUseCase({ ...typeormEvenementReminderGateway, findDueEventIds });
+    const remind = makeSendEvenementRemindersUseCase({ ...typeormEvenementReminderGateway, findDueEventIds }, bus);
     return { event, reservations, update, log, findDueEventIds, remind };
 }
 

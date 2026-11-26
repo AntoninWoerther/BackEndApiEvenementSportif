@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { eventEmitter } from '../src/core/bus/event.emiter.ts';
 import { db } from '../src/core/dataBase.config.ts';
+import { makeNodeEventBus } from '../src/core/infra/bus/node-event-bus.ts';
 import { makeUpdateEvenementDetailsUseCase } from '../src/profile/evenement/app/usecases/update-evenement-details.usecase.ts';
 import { EvenementEntity } from '../src/profile/evenement/infra/persistance/entities/evenement.entity.ts';
 import { typeormEvenementGateway } from '../src/profile/evenement/infra/persistance/repositories/typeorm-evenement.gateway.ts';
@@ -12,7 +12,6 @@ import { typeormUserGateway } from '../src/profile/user/infra/persistance/reposi
 import { makeCancelReservationUseCase } from '../src/reservation/app/usecases/cancel-reservation.usecase.ts';
 import { makeCreateReservationUseCase } from '../src/reservation/app/usecases/create-reservation.usecase.ts';
 import { makeRemoveEventParticipantUseCase } from '../src/reservation/app/usecases/remove-event-participant.usecase.ts';
-import { WAITLIST_PROMOTED } from '../src/reservation/domain/events/waitlist-promoted.event.ts';
 import { registerWaitlistPromotionEmailListener } from '../src/reservation/infra/mailer/waitlist-promotion-email.listener.ts';
 import { ReservationEntity } from '../src/reservation/infra/persistance/entities/reservation.entity.ts';
 import { WaitlistEntryEntity } from '../src/reservation/infra/persistance/entities/waitlist-entry.entity.ts';
@@ -112,15 +111,14 @@ function setup(t) {
     });
 
     const log = t.mock.method(console, 'log', () => { assert.equal(inTransaction, false); });
-    registerWaitlistPromotionEmailListener();
-    const listener = eventEmitter.listeners(WAITLIST_PROMOTED).at(-1);
-    t.after(() => eventEmitter.off(WAITLIST_PROMOTED, listener));
-    return { event, bookings, queue, suspended, insert, log };
+    const bus = makeNodeEventBus();
+    registerWaitlistPromotionEmailListener(bus);
+    return { event, bookings, queue, suspended, insert, log, bus };
 }
 
 test('un désistement inscrit le premier de la file même avec une demande concurrente', async t => {
-    const { bookings, queue, log } = setup(t);
-    const cancel = makeCancelReservationUseCase(typeormReservationGateway);
+    const { bookings, queue, log, bus } = setup(t);
+    const cancel = makeCancelReservationUseCase(typeormReservationGateway, bus);
     const create = makeCreateReservationUseCase(typeormReservationGateway);
     const cancellation = cancel({ evenementId: 10, userId: 20 });
     const outsider = create({ evenementId: 10, userId: 25 });
@@ -137,9 +135,9 @@ test('un désistement inscrit le premier de la file même avec une demande concu
 });
 
 test('une hausse de capacité inscrit les premiers comptes actifs et utilise la description mise à jour', async t => {
-    const { bookings, queue, suspended, log } = setup(t);
+    const { bookings, queue, suspended, log, bus } = setup(t);
     suspended.add(21);
-    const update = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway);
+    const update = makeUpdateEvenementDetailsUseCase(typeormEvenementGateway, bus);
     await update(10, 1, { capacity: 3, description: 'Tournoi de volley' }, USER_PERMISSIONS.UPDATE_EVENT);
 
     assert.deepEqual(bookings.map(row => row.userId), [20, 22, 23]);
@@ -151,8 +149,8 @@ test('une hausse de capacité inscrit les premiers comptes actifs et utilise la 
 });
 
 test('un retrait par modération libère aussi une place, sauf pour un événement terminé', async t => {
-    const { event, bookings, log } = setup(t);
-    const removeParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
+    const { event, bookings, log, bus } = setup(t);
+    const removeParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway, bus);
     await removeParticipant({ evenementId: 10, userId: 20 });
     assert.deepEqual(bookings.map(row => row.userId), [22]);
 
@@ -163,8 +161,8 @@ test('un retrait par modération libère aussi une place, sauf pour un événeme
 });
 
 test('la suppression d’un compte attribue la place libérée par la suppression en cascade', async t => {
-    const { bookings, log } = setup(t);
-    const deleteUser = makeDeleteUserUseCase(typeormUserGateway);
+    const { bookings, log, bus } = setup(t);
+    const deleteUser = makeDeleteUserUseCase(typeormUserGateway, bus);
     await deleteUser(20, { id: 20, permissions: 7 });
 
     assert.deepEqual(bookings.map(row => row.userId), [22]);
@@ -172,9 +170,9 @@ test('la suppression d’un compte attribue la place libérée par la suppressio
 });
 
 test('un échec de la transaction conserve la réservation et ne déclenche aucun mail', async t => {
-    const { bookings, queue, insert, log } = setup(t);
+    const { bookings, queue, insert, log, bus } = setup(t);
     insert.mock.mockImplementation(async () => { throw new Error('Écriture impossible.'); });
-    const cancel = makeCancelReservationUseCase(typeormReservationGateway);
+    const cancel = makeCancelReservationUseCase(typeormReservationGateway, bus);
     await assert.rejects(cancel({ evenementId: 10, userId: 20 }), /Écriture impossible/);
 
     assert.deepEqual(bookings.map(row => row.userId), [20]);

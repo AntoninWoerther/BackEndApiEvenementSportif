@@ -1,7 +1,7 @@
-import { eventEmitter } from '../../../../core/bus/event.emiter';
+import type { EventPublisher } from '../../../../core/bus/event-bus';
 import { formatParisDay, shiftDay } from '../../../../core/date/paris-day';
 import { EVENEMENT_EVENTS } from '../../domain/events/evenement.events';
-import type { EvenementDeletionWarningEvent } from '../../domain/events/evenement.events';
+import type { EvenementDeletionWarningEvent, EvenementEvents } from '../../domain/events/evenement.events';
 import type { EvenementCleanupGateway } from '../interfaces/evenement-cleanup.gateway';
 
 const WARNING_AFTER_DAYS = 5;
@@ -10,7 +10,10 @@ const CANCELLED_RETENTION_MS = 5 * 24 * 60 * 60 * 1000;
 
 export type CleanupEvenementsUseCase = (now?: Date) => Promise<number>;
 
-export const makeCleanupEvenementsUseCase = (gateway: EvenementCleanupGateway): CleanupEvenementsUseCase => {
+export const makeCleanupEvenementsUseCase = (
+    gateway: EvenementCleanupGateway,
+    events: EventPublisher<EvenementEvents>
+): CleanupEvenementsUseCase => {
     return async (now = new Date()) => {
         const today = formatParisDay(now);
         const lastExpiredCancellation = new Date(now.getTime() - CANCELLED_RETENTION_MS);
@@ -27,7 +30,7 @@ export const makeCleanupEvenementsUseCase = (gateway: EvenementCleanupGateway): 
                     daysUntilDeletion: evenement.date === lastWarningDate ? 2 : 1
                 };
 
-                eventEmitter.emit(EVENEMENT_EVENTS.DELETION_WARNING, event);
+                events.publish(EVENEMENT_EVENTS.DELETION_WARNING, event);
             }
         }
 

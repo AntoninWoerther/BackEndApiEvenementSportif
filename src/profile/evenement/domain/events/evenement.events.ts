@@ -33,3 +33,10 @@ export interface EvenementDeletionWarningEvent {
     deletionDate: string;
     daysUntilDeletion: number;
 }
+
+export interface EvenementEvents {
+    [EVENEMENT_EVENTS.DATE_UPDATED]: EvenementDateUpdatedEvent;
+    [EVENEMENT_EVENTS.DELETION_WARNING]: EvenementDeletionWarningEvent;
+    [EVENEMENT_EVENTS.CANCELLED]: EvenementCancelledEvent;
+    [EVENEMENT_EVENTS.REMINDER_DUE]: EvenementReminderEvent;
+}

@@ -1,13 +1,17 @@
-import { eventEmitter } from '../../../../core/bus/event.emiter';
+import type { EventSubscriber } from '../../../../core/bus/event-bus';
 import type { UserGateway } from '../../app/interfaces/user.gateway';
 import { USER_EVENTS } from '../../domain/events/user.events';
+import type { UserEvents } from '../../domain/events/user.events';
 
-export const registerSignupEmailListeners = (users: Pick<UserGateway, 'findByEmail'>): void => {
-    eventEmitter.on(USER_EVENTS.USER_CREATED, (email: string) => {
+export const registerSignupEmailListeners = (
+    events: EventSubscriber<UserEvents>,
+    users: Pick<UserGateway, 'findByEmail'>
+): void => {
+    events.subscribe(USER_EVENTS.USER_CREATED, email => {
         console.log(`[MAIL] Envoi du mail de validation à ${email}`);
     });
 
-    eventEmitter.on(USER_EVENTS.USER_SIGNUP_DUPLICATE, async (email: string) => {
+    events.subscribe(USER_EVENTS.USER_SIGNUP_DUPLICATE, async email => {
         try {
             const user = await users.findByEmail(email);
             if (user) {

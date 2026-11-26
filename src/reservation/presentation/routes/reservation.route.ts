@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
-import { authMiddleware } from '../../../auth/infra/gards/auth.middleware';
 import { requireUserPermission } from '../../../auth/infra/gards/user-permissions.middleware';
 import { USER_PERMISSIONS } from '../../../profile/user/domain/permissions/user.permissions';
 import type { CancelReservationUseCase } from '../../app/usecases/cancel-reservation.usecase';
@@ -19,6 +18,7 @@ interface ReservationRouteDependencies {
     cancelReservation: CancelReservationUseCase;
     getMyReservations: GetMyReservationsUseCase;
     removeEventParticipant: RemoveEventParticipantUseCase;
+    authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
 }
 
@@ -27,6 +27,7 @@ export const createReservationRouter = ({
     cancelReservation,
     getMyReservations,
     removeEventParticipant,
+    authMiddleware,
     loadUserPermissions
 }: ReservationRouteDependencies) => {
     const router = Router();

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as userRepository from '../../../profile/user/infra/persistance/repositories/user.repository';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error';
 import { getJwtSecret, signAccessToken } from '../../infra/security/access-token.security';
@@ -17,9 +18,9 @@ export const createLoginUseCase = (issueRefreshToken: IssueRefreshTokenUseCase) 
             throw new InvalidCredentialsError();
         }
 
-        const secret = getJwtSecret();
-        const refreshToken = await issueRefreshToken(user.id);
-        const accessToken = signAccessToken(user.id, secret);
+        const sessionId = randomUUID();
+        const accessToken = signAccessToken(user.id, getJwtSecret(), sessionId);
+        const refreshToken = await issueRefreshToken(user.id, sessionId);
 
         return { user, accessToken, refreshToken };
     };

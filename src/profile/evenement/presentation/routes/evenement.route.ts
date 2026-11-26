@@ -2,7 +2,6 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { requireAnyUserPermission, requireUserPermission } from '../../../../auth/infra/gards/user-permissions.middleware';
 import { USER_PERMISSIONS } from '../../../user/domain/permissions/user.permissions';
-import { authMiddleware } from '../../../../auth/infra/gards/auth.middleware';
 import type { CreateEvenementUseCase } from '../../app/usecases/create-evenement.usecase';
 import type { DeleteEvenementUseCase } from '../../app/usecases/delete-evenement.usecase';
 import type { GetEvenementByIdUseCase } from '../../app/usecases/get-evenement-by-id.usecase';
@@ -17,6 +16,7 @@ import {
 } from '../controllers/evenement.controller';
 
 interface EvenementRouteDependencies {
+    authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
     createEvenement: CreateEvenementUseCase;
     deleteEvenement: DeleteEvenementUseCase;
@@ -31,6 +31,7 @@ export const createEvenementRouter = ({
     getEvenementById,
     getEvenements,
     updateEvenementDate,
+    authMiddleware,
     loadUserPermissions
 }: EvenementRouteDependencies) => {
     const router = Router();

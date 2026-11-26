@@ -24,12 +24,15 @@ import { createChangePasswordUseCase } from './profile/user/app/usecases/change-
 import { makeChangeUserPermissionUseCase } from './profile/user/app/usecases/change-user-permission.usecase';
 import { makeExportUserPermissionChangesUseCase } from './profile/user/app/usecases/export-user-permission-changes.usecase';
 import { typeormUserPermissionsGateway } from './profile/user/infra/persistance/repositories/typeorm-user-permissions.gateway';
+import { makeAuthMiddleware } from './auth/infra/gards/auth.middleware';
 import { makeLoadUserPermissions } from './auth/infra/gards/user-permissions.middleware';
 import { typeormUserPasswordGateway } from './profile/user/infra/persistance/repositories/typeorm-user-password.gateway';
 import { createUserRouter } from './profile/user/presentation/routes/user.route';
 import { makeCleanupRefreshTokensUseCase } from './auth/app/usecases/cleanup-refresh-tokens.usecase';
 import { createIssueRefreshTokenUseCase } from './auth/app/usecases/create-refresh-token.usecase';
 import { createLoginUseCase } from './auth/app/usecases/login.usecase';
+import { createLogoutAllUseCase } from './auth/app/usecases/logout-all.usecase';
+import { createLogoutUseCase } from './auth/app/usecases/logout.usecase';
 import { createRefreshUseCase } from './auth/app/usecases/refresh.usecase';
 import { typeormRefreshTokenGateway } from './auth/infra/persistance/repositories/typeorm-refresh-token.gateway';
 import { startRefreshTokenCleanupScheduler } from './auth/infra/scheduling/refresh-token-cleanup.scheduler';
@@ -57,6 +60,7 @@ const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway);
 const grantUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'grant');
 const revokeUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'revoke');
 const exportUserPermissionChanges = makeExportUserPermissionChangesUseCase(typeormUserPermissionsGateway);
+const authMiddleware = makeAuthMiddleware(typeormRefreshTokenGateway);
 const loadUserPermissions = makeLoadUserPermissions(typeormUserPermissionsGateway);
 const issueRefreshToken = createIssueRefreshTokenUseCase(typeormRefreshTokenGateway);
 
@@ -69,6 +73,7 @@ app.use('/evenements', createEvenementRouter({
   getEvenementById,
   getEvenements,
   updateEvenementDate,
+  authMiddleware,
   loadUserPermissions
 }));
 app.use('/', createReservationRouter({
@@ -76,6 +81,7 @@ app.use('/', createReservationRouter({
   cancelReservation,
   getMyReservations,
   removeEventParticipant,
+  authMiddleware,
   loadUserPermissions
 }));
 app.use('/', createUserRouter({
@@ -83,11 +89,15 @@ app.use('/', createUserRouter({
   grantUserPermission,
   revokeUserPermission,
   exportUserPermissionChanges,
+  authMiddleware,
   loadUserPermissions
 }));
 app.use('/auth', createAuthRouter({
   login: createLoginUseCase(issueRefreshToken),
-  refresh: createRefreshUseCase(typeormRefreshTokenGateway, issueRefreshToken)
+  authMiddleware,
+  logout: createLogoutUseCase(typeormRefreshTokenGateway),
+  logoutAll: createLogoutAllUseCase(typeormRefreshTokenGateway),
+  refresh: createRefreshUseCase(typeormRefreshTokenGateway)
 }));
 
 app.use((_req, _res, next) => {

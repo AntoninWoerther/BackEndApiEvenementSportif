@@ -1,33 +1,33 @@
 import type { RefreshTokenGateway } from '../../../app/interfaces/refresh-token.gateway';
 import {
-    createRefreshToken,
     deleteExpiredRefreshTokens,
     findRefreshTokenByHash,
-    revokeRefreshToken
+    hasActiveRefreshSession,
+    revokeAllRefreshSessions,
+    revokeRefreshSessionByHash,
+    rotateRefreshToken,
+    startRefreshSession
 } from './refresh-token.repository';
 
 export const typeormRefreshTokenGateway: RefreshTokenGateway = {
-    async save(token) {
-        await createRefreshToken({
-            hashedToken: token.hashedToken,
-            user: { id: token.userId },
-            expiresAt: token.expiresAt,
-            revokedAt: null
-        });
-    },
+    startSession: startRefreshSession,
     async findByHash(hashedToken) {
         const token = await findRefreshTokenByHash(hashedToken);
-        if (!token) {
+        if (!token || token.userId === null) {
             return null;
         }
 
         return {
             id: token.id,
-            userId: token.user.id,
+            userId: token.userId,
+            sessionId: token.sessionId,
             expiresAt: token.expiresAt,
             revokedAt: token.revokedAt
         };
     },
-    revoke: revokeRefreshToken,
+    revokeByHash: revokeRefreshSessionByHash,
+    revokeAllForUser: revokeAllRefreshSessions,
+    hasActiveSession: hasActiveRefreshSession,
+    rotate: rotateRefreshToken,
     deleteExpired: deleteExpiredRefreshTokens
 };

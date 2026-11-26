@@ -12,6 +12,7 @@ import {
 import { UserEntity } from '../../../../profile/user/infra/persistance/entities/user.entity';
 
 @Entity('refresh_tokens')
+@Index('IDX_refresh_tokens_user_session', ['userId', 'sessionId'])
 export class RefreshTokenEntity {
 
     @PrimaryGeneratedColumn()
@@ -20,9 +21,15 @@ export class RefreshTokenEntity {
     @Column('varchar', { length: 255, unique: true })
     hashedToken!: string;
 
+    @Column('int', { nullable: true })
+    userId!: number | null;
+
+    @Column('varchar', { length: 36, nullable: true })
+    sessionId!: string | null;
+
     @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'userId' })
-    user!: UserEntity;
+    user!: UserEntity | null;
 
     @Index('IDX_refresh_tokens_expires_at')
     @Column('datetime')

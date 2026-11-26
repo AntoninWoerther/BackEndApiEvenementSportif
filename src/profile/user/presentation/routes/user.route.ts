@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
-import { authMiddleware } from '../../../../auth/infra/gards/auth.middleware';
 import { requireUserPermission } from '../../../../auth/infra/gards/user-permissions.middleware';
 import type { ChangePasswordUseCase } from '../../app/usecases/change-password.usecase';
 import type { ChangeUserPermissionUseCase } from '../../app/usecases/change-user-permission.usecase';
@@ -13,6 +12,7 @@ interface UserRouteDependencies {
     grantUserPermission: ChangeUserPermissionUseCase;
     revokeUserPermission: ChangeUserPermissionUseCase;
     exportUserPermissionChanges: ExportUserPermissionChangesUseCase;
+    authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
 }
 
@@ -21,6 +21,7 @@ export const createUserRouter = ({
     grantUserPermission,
     revokeUserPermission,
     exportUserPermissionChanges,
+    authMiddleware,
     loadUserPermissions
 }: UserRouteDependencies) => {
     const router = Router();

@@ -11,9 +11,9 @@ export const getJwtSecret = (): string => {
     return secret;
 };
 
-export const signAccessToken = (userId: number, secret: string): string => {
+export const signAccessToken = (userId: number, secret: string, sessionId: string): string => {
     const expiresIn = (process.env.JWT_EXPIRES_IN ?? '5m') as SignOptions['expiresIn'];
-    return jwt.sign({ sub: userId }, secret, { expiresIn });
+    return jwt.sign({ sub: userId, sid: sessionId }, secret, { expiresIn });
 };
 
 export const verifyAccessToken = (token: string) => {

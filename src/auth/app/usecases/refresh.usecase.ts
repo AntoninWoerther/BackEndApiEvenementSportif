@@ -1,15 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { ExpiredRefreshTokenError } from '../../domain/errors/expired-refresh-token.error';
 import { InvalidRefreshTokenError } from '../../domain/errors/invalid-refresh-token.error';
 import { RevokedRefreshTokenError } from '../../domain/errors/revoked-refresh-token.error';
 import { getJwtSecret, signAccessToken } from '../../infra/security/access-token.security';
 import { hashRefreshToken } from '../../infra/security/refresh-token.security';
 import type { RefreshTokenGateway } from '../interfaces/refresh-token.gateway';
-import type { IssueRefreshTokenUseCase } from './create-refresh-token.usecase';
+import { prepareRefreshToken } from './create-refresh-token.usecase';
 
-export const createRefreshUseCase = (
-    gateway: RefreshTokenGateway,
-    issueRefreshToken: IssueRefreshTokenUseCase
-) => {
+export const createRefreshUseCase = (gateway: RefreshTokenGateway) => {
     return async (refreshToken: string) => {
         const storedToken = await gateway.findByHash(hashRefreshToken(refreshToken));
 
@@ -25,10 +23,12 @@ export const createRefreshUseCase = (
             throw new ExpiredRefreshTokenError();
         }
 
-        await gateway.revoke(storedToken.id);
-
-        const accessToken = signAccessToken(storedToken.userId, getJwtSecret());
-        const newRefreshToken = await issueRefreshToken(storedToken.userId);
+        const sessionId = storedToken.sessionId ?? randomUUID();
+        const accessToken = signAccessToken(storedToken.userId, getJwtSecret(), sessionId);
+        const { refreshToken: newRefreshToken, tokenToSave } = prepareRefreshToken(storedToken.userId, sessionId);
+        if (!(await gateway.rotate(storedToken.id, tokenToSave))) {
+            throw new InvalidRefreshTokenError();
+        }
 
         return { accessToken, refreshToken: newRefreshToken };
     };

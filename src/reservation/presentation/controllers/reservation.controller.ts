@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
 import { InvalidTokenError } from '../../../auth/domain/errors/invalid-token.error';
 import { parseEvenementId } from '../../../profile/evenement/presentation/routes/parse-evenement-id';
+import { parseUserId } from '../../../profile/user/presentation/routes/parse-user-id';
 import type { ReservationParticipantInput } from '../../app/inputs/reservation-participant.input';
 import type { CancelReservationUseCase } from '../../app/usecases/cancel-reservation.usecase';
 import type { CreateReservationUseCase } from '../../app/usecases/create-reservation.usecase';
 import type { GetMyReservationsUseCase } from '../../app/usecases/get-my-reservations.usecase';
+import type { RemoveEventParticipantUseCase } from '../../app/usecases/remove-event-participant.usecase';
 import { presentReservation, presentReservationWithEvenement } from '../presenters/reservation.presenter';
 
 type ReservationRequest = Request<{ evenementId: string }>;
@@ -42,5 +44,15 @@ export const cancelReservationController = (cancelReservation: CancelReservation
     return async (req: ReservationRequest, res: Response) => {
         await cancelReservation(getReservationParticipant(req));
         return res.status(200).json({ message: 'Participation annulée avec succès.' });
+    };
+};
+
+export const removeEventParticipantController = (removeEventParticipant: RemoveEventParticipantUseCase) => {
+    return async (req: Request<{ evenementId: string; userId: string }>, res: Response) => {
+        const evenementId = parseEvenementId(req.params.evenementId);
+        const userId = parseUserId(req.params.userId);
+
+        await removeEventParticipant({ evenementId, userId });
+        return res.status(200).json({ message: 'Participant retiré de l’événement.' });
     };
 };

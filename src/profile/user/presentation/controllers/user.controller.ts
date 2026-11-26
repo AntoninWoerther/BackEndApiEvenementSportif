@@ -6,7 +6,7 @@ import { createUserUseCase } from '../../app/usecases/create-user.usecase';
 import { deleteUserUseCase } from '../../app/usecases/delete-user.usecase';
 import { getUserByIdUseCase } from '../../app/usecases/get-user-by-id.usecase';
 import { getUsersUseCase } from '../../app/usecases/get-users.usecase';
-import { InvalidUserIdError } from '../../domain/errors/invalid-user-id.error';
+import { parseUserId } from '../routes/parse-user-id';
 import { InvalidUserPermissionsError } from '../../domain/errors/invalid-user-permissions.error';
 import { presentUser } from '../presenters/user.presenter';
 import { ChangePasswordDto } from '../dtos/change-password.dto';
@@ -20,15 +20,6 @@ import { InvalidTokenError } from '../../../../auth/domain/errors/invalid-token.
 import { ValidationFailedError } from '../../../../core/errors/validation-failed.error';
 
 import type { Request, Response } from 'express';
-
-const parseUserId = (value: string): number => {
-    const id = Number(value);
-    if (!/^\d+$/.test(value) || !Number.isSafeInteger(id) || id <= 0) {
-        throw new InvalidUserIdError();
-    }
-
-    return id;
-};
 
 const getAuthenticatedUserId = (req: Request): number => {
     const id = req.user?.id;

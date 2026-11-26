@@ -17,6 +17,7 @@ import { createEvenementRouter } from './profile/evenement/presentation/routes/e
 import { makeCancelReservationUseCase } from './reservation/app/usecases/cancel-reservation.usecase';
 import { makeCreateReservationUseCase } from './reservation/app/usecases/create-reservation.usecase';
 import { makeGetMyReservationsUseCase } from './reservation/app/usecases/get-my-reservations.usecase';
+import { makeRemoveEventParticipantUseCase } from './reservation/app/usecases/remove-event-participant.usecase';
 import { typeormReservationGateway } from './reservation/infra/persistance/repositories/typeorm-reservation.gateway';
 import { createReservationRouter } from './reservation/presentation/routes/reservation.route';
 import { createChangePasswordUseCase } from './profile/user/app/usecases/change-password.usecase';
@@ -51,6 +52,7 @@ const updateEvenementDate = makeUpdateEvenementDateUseCase(typeormEvenementGatew
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
 const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway);
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
+const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
 const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway);
 const grantUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'grant');
 const revokeUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'revoke');
@@ -69,7 +71,13 @@ app.use('/evenements', createEvenementRouter({
   updateEvenementDate,
   loadUserPermissions
 }));
-app.use('/', createReservationRouter({ createReservation, cancelReservation, getMyReservations }));
+app.use('/', createReservationRouter({
+  createReservation,
+  cancelReservation,
+  getMyReservations,
+  removeEventParticipant,
+  loadUserPermissions
+}));
 app.use('/', createUserRouter({
   changePassword,
   grantUserPermission,

@@ -21,4 +21,7 @@ export class UserEntity {
 
     @Column('int', { unsigned: true, default: DEFAULT_USER_PERMISSIONS })
     permissions!: number;
+
+    @Column('datetime', { nullable: true })
+    suspendedAt!: Date | null;
 }

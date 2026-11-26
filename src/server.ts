@@ -21,6 +21,8 @@ import { makeRemoveEventParticipantUseCase } from './reservation/app/usecases/re
 import { typeormReservationGateway } from './reservation/infra/persistance/repositories/typeorm-reservation.gateway';
 import { createReservationRouter } from './reservation/presentation/routes/reservation.route';
 import { createChangePasswordUseCase } from './profile/user/app/usecases/change-password.usecase';
+import { makeChangeUserAccountStatusUseCase } from './profile/user/app/usecases/change-user-account-status.usecase';
+import { typeormUserAccountStatusGateway } from './profile/user/infra/persistance/repositories/typeorm-user-account-status.gateway';
 import { makeChangeUserPermissionUseCase } from './profile/user/app/usecases/change-user-permission.usecase';
 import { makeExportUserPermissionChangesUseCase } from './profile/user/app/usecases/export-user-permission-changes.usecase';
 import { typeormUserPermissionsGateway } from './profile/user/infra/persistance/repositories/typeorm-user-permissions.gateway';
@@ -57,6 +59,8 @@ const cancelReservation = makeCancelReservationUseCase(typeormReservationGateway
 const getMyReservations = makeGetMyReservationsUseCase(typeormReservationGateway);
 const removeEventParticipant = makeRemoveEventParticipantUseCase(typeormReservationGateway);
 const changePassword = createChangePasswordUseCase(typeormUserPasswordGateway);
+const suspendUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'SUSPEND');
+const reactivateUserAccount = makeChangeUserAccountStatusUseCase(typeormUserAccountStatusGateway, 'REACTIVATE');
 const grantUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'grant');
 const revokeUserPermission = makeChangeUserPermissionUseCase(typeormUserPermissionsGateway, 'revoke');
 const exportUserPermissionChanges = makeExportUserPermissionChangesUseCase(typeormUserPermissionsGateway);
@@ -89,6 +93,8 @@ app.use('/', createUserRouter({
   grantUserPermission,
   revokeUserPermission,
   exportUserPermissionChanges,
+  suspendUserAccount,
+  reactivateUserAccount,
   authMiddleware,
   loadUserPermissions
 }));

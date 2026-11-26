@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { AccountSuspendedError } from '../../../profile/user/domain/errors/account-suspended.error';
 import * as userRepository from '../../../profile/user/infra/persistance/repositories/user.repository';
 import { InvalidCredentialsError } from '../../domain/errors/invalid-credentials.error';
 import { getJwtSecret, signAccessToken } from '../../infra/security/access-token.security';
@@ -16,6 +17,10 @@ export const createLoginUseCase = (issueRefreshToken: IssueRefreshTokenUseCase) 
 
         if (!(await verifyPassword(credentials.password, user.hashedPassword))) {
             throw new InvalidCredentialsError();
+        }
+
+        if (user.suspendedAt) {
+            throw new AccountSuspendedError();
         }
 
         const sessionId = randomUUID();

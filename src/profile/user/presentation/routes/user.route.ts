@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { requireUserPermission } from '../../../../auth/infra/gards/user-permissions.middleware';
 import type { ChangePasswordUseCase } from '../../app/usecases/change-password.usecase';
+import type { ChangeUserAccountStatusUseCase } from '../../app/usecases/change-user-account-status.usecase';
 import type { ChangeUserPermissionUseCase } from '../../app/usecases/change-user-permission.usecase';
 import type { ExportUserPermissionChangesUseCase } from '../../app/usecases/export-user-permission-changes.usecase';
 import { USER_PERMISSIONS } from '../../domain/permissions/user.permissions';
@@ -12,6 +13,8 @@ interface UserRouteDependencies {
     grantUserPermission: ChangeUserPermissionUseCase;
     revokeUserPermission: ChangeUserPermissionUseCase;
     exportUserPermissionChanges: ExportUserPermissionChangesUseCase;
+    suspendUserAccount: ChangeUserAccountStatusUseCase;
+    reactivateUserAccount: ChangeUserAccountStatusUseCase;
     authMiddleware: RequestHandler;
     loadUserPermissions: RequestHandler;
 }
@@ -21,6 +24,8 @@ export const createUserRouter = ({
     grantUserPermission,
     revokeUserPermission,
     exportUserPermissionChanges,
+    suspendUserAccount,
+    reactivateUserAccount,
     authMiddleware,
     loadUserPermissions
 }: UserRouteDependencies) => {
@@ -57,6 +62,21 @@ export const createUserRouter = ({
         '/users/permissions/audit/export',
         ...managePermissions,
         userController.createExportUserPermissionChangesController(exportUserPermissionChanges)
+    );
+
+    router.patch(
+        '/users/:id/suspend',
+        authMiddleware,
+        loadUserPermissions,
+        requireUserPermission(USER_PERMISSIONS.SUSPEND_ACCOUNT),
+        userController.createChangeUserAccountStatusController(suspendUserAccount)
+    );
+    router.patch(
+        '/users/:id/reactivate',
+        authMiddleware,
+        loadUserPermissions,
+        requireUserPermission(USER_PERMISSIONS.REACTIVATE_ACCOUNT),
+        userController.createChangeUserAccountStatusController(reactivateUserAccount)
     );
 
     return router;

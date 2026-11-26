@@ -1,5 +1,6 @@
 
 import type { ChangePasswordUseCase } from '../../app/usecases/change-password.usecase';
+import type { ChangeUserAccountStatusUseCase } from '../../app/usecases/change-user-account-status.usecase';
 import type { ChangeUserPermissionUseCase } from '../../app/usecases/change-user-permission.usecase';
 import type { ExportUserPermissionChangesUseCase } from '../../app/usecases/export-user-permission-changes.usecase';
 import { createUserUseCase } from '../../app/usecases/create-user.usecase';
@@ -119,6 +120,16 @@ export const createExportUserPermissionChangesController = (exportChanges: Expor
             .set('Cache-Control', 'no-store')
             .status(200)
             .json(changes);
+    };
+};
+
+export const createChangeUserAccountStatusController = (changeStatus: ChangeUserAccountStatusUseCase) => {
+    return async (req: Request<{ id: string }>, res: Response) => {
+        const actorId = getAuthenticatedUserId(req);
+        const userId = parseUserId(req.params.id);
+        const suspended = await changeStatus(actorId, userId);
+
+        return res.status(200).json({ userId, suspended });
     };
 };
 

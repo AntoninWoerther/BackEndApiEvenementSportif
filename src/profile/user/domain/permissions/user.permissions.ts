@@ -5,7 +5,9 @@ export const USER_PERMISSIONS = {
     DELETE_ACCOUNT: 8,
     SUPERUSER: 16,
     UPDATE_OTHER_EVENTS: 32,
-    REMOVE_EVENT_PARTICIPANTS: 64
+    REMOVE_EVENT_PARTICIPANTS: 64,
+    SUSPEND_ACCOUNT: 128,
+    REACTIVATE_ACCOUNT: 256
 } as const;
 
 export type UserPermission = typeof USER_PERMISSIONS[keyof typeof USER_PERMISSIONS];
@@ -15,7 +17,8 @@ export const DEFAULT_USER_PERMISSIONS = USER_PERMISSIONS.CREATE_EVENT |
 
 export const ALL_USER_PERMISSIONS = DEFAULT_USER_PERMISSIONS |
     USER_PERMISSIONS.DELETE_ACCOUNT | USER_PERMISSIONS.SUPERUSER |
-    USER_PERMISSIONS.UPDATE_OTHER_EVENTS | USER_PERMISSIONS.REMOVE_EVENT_PARTICIPANTS;
+    USER_PERMISSIONS.UPDATE_OTHER_EVENTS | USER_PERMISSIONS.REMOVE_EVENT_PARTICIPANTS |
+    USER_PERMISSIONS.SUSPEND_ACCOUNT | USER_PERMISSIONS.REACTIVATE_ACCOUNT;
 
 export const GRANTABLE_USER_PERMISSIONS = [
     USER_PERMISSIONS.CREATE_EVENT,
@@ -37,5 +40,9 @@ export const isSuperuser = (permissions: number): boolean => {
 };
 
 export const hasUserPermission = (permissions: number, required: UserPermission): boolean => {
-    return isSuperuser(permissions) || (permissions & required) === required;
+    if (isSuperuser(permissions)) {
+        return true;
+    }
+
+    return isGrantableUserPermission(required) && (permissions & required) === required;
 };

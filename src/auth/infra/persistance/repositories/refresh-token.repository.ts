@@ -1,6 +1,7 @@
 import { IsNull, LessThanOrEqual, MoreThan } from 'typeorm';
 import type { EntityManager, Repository } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
+import { AccountSuspendedError } from '../../../../profile/user/domain/errors/account-suspended.error';
 import { UserEntity } from '../../../../profile/user/infra/persistance/entities/user.entity';
 import type { LogoutResult, RefreshTokenToSave } from '../../../app/interfaces/refresh-token.gateway';
 import { InvalidCredentialsError } from '../../../domain/errors/invalid-credentials.error';
@@ -9,14 +10,12 @@ import type { AuthSessionEventType } from '../../../domain/events/auth-session.e
 import { AuthSessionEventEntity } from '../entities/auth-session-event.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 
-const lockUser = async (manager: EntityManager, userId: number): Promise<boolean> => {
-    const user = await manager.getRepository(UserEntity).findOne({
+const lockUser = (manager: EntityManager, userId: number): Promise<Pick<UserEntity, 'id' | 'suspendedAt'> | null> => {
+    return manager.getRepository(UserEntity).findOne({
         where: { id: userId },
-        select: { id: true },
+        select: { id: true, suspendedAt: true },
         lock: { mode: 'pessimistic_write' }
     });
-
-    return user !== null;
 };
 
 const insertRefreshToken = async (repository: Repository<RefreshTokenEntity>, token: RefreshTokenToSave): Promise<void> => {
@@ -39,8 +38,12 @@ const activeRefreshTokenCriteria = (now: Date) => ({
 
 export const startRefreshSession = (token: RefreshTokenToSave): Promise<void> => {
     return db.transaction(async (manager) => {
-        if (!(await lockUser(manager, token.userId))) {
+        const user = await lockUser(manager, token.userId);
+        if (!user) {
             throw new InvalidCredentialsError();
+        }
+        if (user.suspendedAt) {
+            throw new AccountSuspendedError();
         }
 
         await insertRefreshToken(manager.getRepository(RefreshTokenEntity), token);
@@ -54,7 +57,8 @@ export const findRefreshTokenByHash = (hashedToken: string): Promise<RefreshToke
 
 export const rotateRefreshToken = (id: number, replacement: RefreshTokenToSave): Promise<boolean> => {
     return db.transaction(async (manager) => {
-        if (!(await lockUser(manager, replacement.userId))) {
+        const user = await lockUser(manager, replacement.userId);
+        if (!user || user.suspendedAt) {
             return false;
         }
 
@@ -112,18 +116,26 @@ export const revokeRefreshSessionByHash = async (hashedToken: string): Promise<L
     });
 };
 
+export const revokeActiveRefreshTokensForUser = async (
+    manager: EntityManager,
+    userId: number,
+    now: Date
+): Promise<number> => {
+    const result = await manager.getRepository(RefreshTokenEntity).update(
+        { userId, ...activeRefreshTokenCriteria(now) },
+        { revokedAt: now }
+    );
+    return result.affected ?? 0;
+};
+
 export const revokeAllRefreshSessions = (userId: number): Promise<void> => {
     return db.transaction(async (manager) => {
         if (!(await lockUser(manager, userId))) {
             return;
         }
 
-        const now = new Date();
-        const result = await manager.getRepository(RefreshTokenEntity).update(
-            { userId, ...activeRefreshTokenCriteria(now) },
-            { revokedAt: now }
-        );
-        if ((result.affected ?? 0) > 0) {
+        const revoked = await revokeActiveRefreshTokensForUser(manager, userId, new Date());
+        if (revoked > 0) {
             await recordSessionEvent(manager, userId, null, AUTH_SESSION_EVENTS.LOGOUT_ALL);
         }
     });
@@ -133,6 +145,7 @@ export const hasActiveRefreshSession = (userId: number, sessionId: string): Prom
     return db.getRepository(RefreshTokenEntity).existsBy({
         userId,
         sessionId,
+        user: { id: userId, suspendedAt: IsNull() },
         ...activeRefreshTokenCriteria(new Date())
     });
 };

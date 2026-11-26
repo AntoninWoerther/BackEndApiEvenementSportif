@@ -1,5 +1,6 @@
 import { QueryFailedError } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
+import { formatParisDay } from '../../../../core/date/paris-day';
 import { EvenementEntity } from '../../../../profile/evenement/infra/persistance/entities/evenement.entity';
 import type { CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
 import { ReservationEntity } from '../entities/reservation.entity';
@@ -31,12 +32,16 @@ export const typeormReservationGateway: ReservationGateway = {
             return await db.transaction<CreateReservationResult>('READ COMMITTED', async (manager) => {
                 const evenement = await manager.getRepository(EvenementEntity).findOne({
                     where: { id: evenementId },
-                    select: { id: true, capacity: true },
+                    select: { id: true, capacity: true, date: true },
                     lock: { mode: 'pessimistic_write' }
                 });
 
                 if (!evenement) {
                     return { status: 'evenement-not-found' };
+                }
+
+                if (evenement.date < formatParisDay(new Date())) {
+                    return { status: 'evenement-past' };
                 }
 
                 const reservations = manager.getRepository(ReservationEntity);

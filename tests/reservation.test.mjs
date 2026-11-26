@@ -7,13 +7,17 @@ import { ReservationEntity } from '../src/reservation/infra/persistance/entities
 import { typeormReservationGateway } from '../src/reservation/infra/persistance/repositories/typeorm-reservation.gateway.ts';
 
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
-const event = { id: 10, capacity: 2 };
+const eventId = 10;
+const capacity = 2;
 
-function seedEvent(t) {
-    const reservations = [{ id: 1, evenementId: event.id, userId: 20 }];
+function seedEvent(t, date = '2029-06-03') {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2029-06-01T22:00:00Z') });
+    const event = { id: eventId, capacity, date };
+    const reservations = [{ id: 1, evenementId: eventId, userId: 20 }];
     const repositories = new Map([
         [EvenementEntity, {
-            async findOne({ where, lock }) {
+            async findOne({ where, select, lock }) {
+                assert.equal(select.date, true);
                 assert.deepEqual(lock, { mode: 'pessimistic_write' });
                 return where.id === event.id ? event : null;
             }
@@ -51,8 +55,8 @@ function seedEvent(t) {
 test('deux demandes simultanées pour la dernière place donnent une seule réservation', async t => {
     const reservations = seedEvent(t);
     const results = await Promise.allSettled([
-        createReservation({ evenementId: event.id, userId: 21 }),
-        createReservation({ evenementId: event.id, userId: 22 })
+        createReservation({ evenementId: eventId, userId: 21 }),
+        createReservation({ evenementId: eventId, userId: 22 })
     ]);
 
     const confirmed = results.filter(result => result.status === 'fulfilled');
@@ -61,16 +65,35 @@ test('deux demandes simultanées pour la dernière place donnent une seule rése
     assert.equal(rejected.length, 1);
     assert.equal(rejected[0].reason.statusCode, 409);
     assert.equal(rejected[0].reason.errorid, 'RESERVATION_002');
-    assert.equal(reservations.length, event.capacity);
+    assert.equal(reservations.length, capacity);
     assert.deepEqual(reservations[1], confirmed[0].value);
 });
 
 test('une deuxième inscription du même utilisateur laisse la dernière place libre', async t => {
     const reservations = seedEvent(t);
 
-    await assert.rejects(createReservation({ evenementId: event.id, userId: 20 }), {
+    await assert.rejects(createReservation({ evenementId: eventId, userId: 20 }), {
         statusCode: 409,
         errorid: 'RESERVATION_001'
     });
     assert.equal(reservations.length, 1);
+});
+
+test('les inscriptions à un événement passé sont closes dès minuit à Paris', async t => {
+    const reservations = seedEvent(t, '2029-06-01');
+
+    await assert.rejects(createReservation({ evenementId: eventId, userId: 21 }), {
+        statusCode: 409,
+        errorid: 'RESERVATION_005'
+    });
+    assert.equal(reservations.length, 1);
+});
+
+test('une inscription est encore possible le jour de l’événement à Paris', async t => {
+    const reservations = seedEvent(t, '2029-06-02');
+
+    const reservation = await createReservation({ evenementId: eventId, userId: 21 });
+
+    assert.equal(reservations.length, 2);
+    assert.deepEqual(reservation, reservations[1]);
 });

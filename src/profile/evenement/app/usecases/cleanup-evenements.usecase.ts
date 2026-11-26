@@ -1,22 +1,11 @@
 import { eventEmitter } from '../../../../core/bus/event.emiter';
+import { formatParisDay } from '../../../../core/date/paris-day';
 import { EVENEMENT_EVENTS } from '../../domain/events/evenement.events';
 import type { EvenementDeletionWarningEvent } from '../../domain/events/evenement.events';
 import type { EvenementCleanupGateway } from '../interfaces/evenement-cleanup.gateway';
 
 const WARNING_AFTER_DAYS = 5;
 const DELETE_AFTER_DAYS = 7;
-
-const parisDateFormatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Paris',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-});
-
-const formatParisDay = (now: Date): string => {
-    const parts = Object.fromEntries(parisDateFormatter.formatToParts(now).map(({ type, value }) => [type, value]));
-    return `${parts.year}-${parts.month}-${parts.day}`;
-};
 
 const shiftDay = (day: string, days: number): string => {
     const date = new Date(day + 'T00:00:00.000Z');

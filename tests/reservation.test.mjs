@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import { db } from '../src/core/dataBase.config.ts';
 import { EvenementEntity } from '../src/profile/evenement/infra/persistance/entities/evenement.entity.ts';
 import { makeCreateReservationUseCase } from '../src/reservation/app/usecases/create-reservation.usecase.ts';
+import { makeGetMyReservationsUseCase } from '../src/reservation/app/usecases/get-my-reservations.usecase.ts';
 import { ReservationEntity } from '../src/reservation/infra/persistance/entities/reservation.entity.ts';
 import { typeormReservationGateway } from '../src/reservation/infra/persistance/repositories/typeorm-reservation.gateway.ts';
+import { getMyReservationsController } from '../src/reservation/presentation/controllers/reservation.controller.ts';
 
 const createReservation = makeCreateReservationUseCase(typeormReservationGateway);
 const eventId = 10;
@@ -96,4 +98,40 @@ test('une inscription est encore possible le jour de l’événement à Paris', 
 
     assert.equal(reservations.length, 2);
     assert.deepEqual(reservation, reservations[1]);
+});
+
+test('Mes réservations distingue les événements terminés, du jour et à venir selon la date à Paris', async t => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2029-06-01T22:00:00Z') });
+    const reservations = ['2029-06-01', '2029-06-02', '2029-06-03'].map((date, index) => ({
+        id: index + 1,
+        evenementId: index + 10,
+        userId: 20,
+        createdAt: new Date('2029-05-28T10:00:00Z'),
+        evenement: {
+            id: index + 10,
+            description: 'Match amical',
+            location: 'Gymnase',
+            date,
+            capacity: 2,
+            creatorId: 42
+        }
+    }));
+    const listByUserId = t.mock.fn(async () => reservations);
+    const controller = getMyReservationsController(makeGetMyReservationsUseCase({ listByUserId }));
+    const response = {
+        status: t.mock.fn(() => response),
+        set: t.mock.fn(() => response),
+        json: t.mock.fn()
+    };
+
+    await controller({ user: { id: 20 } }, response);
+
+    assert.deepEqual(listByUserId.mock.calls[0].arguments, [20]);
+    assert.deepEqual(response.status.mock.calls[0].arguments, [200]);
+    const [payload] = response.json.mock.calls[0].arguments;
+    assert.deepEqual(payload.map(({ evenement }) => [evenement.date, evenement.status]), [
+        ['2029-06-01', 'finished'],
+        ['2029-06-02', 'today'],
+        ['2029-06-03', 'upcoming']
+    ]);
 });

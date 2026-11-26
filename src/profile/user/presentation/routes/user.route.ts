@@ -30,16 +30,16 @@ export const createUserRouter = ({
     loadUserPermissions
 }: UserRouteDependencies) => {
     const router = Router();
-    const managePermissions = [
+    const superuserOnly = [
         authMiddleware,
         loadUserPermissions,
         requireUserPermission(USER_PERMISSIONS.SUPERUSER)
     ];
 
-    router.get('/', userController.getUsers);
+    router.get('/', ...superuserOnly, userController.getUsers);
     router.post('/', userController.setUsers);
     router.delete('/:id', authMiddleware, loadUserPermissions, userController.delUser);
-    router.get('/:id', userController.getUserById);
+    router.get('/:id', ...superuserOnly, userController.getUserById);
     router.patch(
         '/me/password',
         authMiddleware,
@@ -49,18 +49,18 @@ export const createUserRouter = ({
     );
     router.patch(
         '/users/:id/permissions',
-        ...managePermissions,
+        ...superuserOnly,
         userController.createGrantUserPermissionController(grantUserPermission)
     );
     router.delete(
         '/users/:id/permissions/:permission',
-        ...managePermissions,
+        ...superuserOnly,
         userController.createRevokeUserPermissionController(revokeUserPermission)
     );
 
     router.get(
         '/users/permissions/audit/export',
-        ...managePermissions,
+        ...superuserOnly,
         userController.createExportUserPermissionChangesController(exportUserPermissionChanges)
     );
 

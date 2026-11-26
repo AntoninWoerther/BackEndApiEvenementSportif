@@ -9,9 +9,12 @@ import { ExpiredRefreshTokenError } from '../src/auth/domain/errors/expired-refr
 import { InvalidRefreshTokenError } from '../src/auth/domain/errors/invalid-refresh-token.error.ts';
 import { RevokedRefreshTokenError } from '../src/auth/domain/errors/revoked-refresh-token.error.ts';
 import { makeAuthMiddleware } from '../src/auth/infra/gards/auth.middleware.ts';
+import { makeLoadUserPermissions } from '../src/auth/infra/gards/user-permissions.middleware.ts';
 import { createAuthRouter } from '../src/auth/presentation/routes/auth.route.ts';
 import { db } from '../src/core/dataBase.config.ts';
 import { errorMiddleware } from '../src/core/middleware/erreur.middleware.ts';
+import { DEFAULT_USER_PERMISSIONS, USER_PERMISSIONS } from '../src/profile/user/domain/permissions/user.permissions.ts';
+import { createUserRouter } from '../src/profile/user/presentation/routes/user.route.ts';
 
 function createAuthTestApp(refresh) {
     const app = express();
@@ -111,6 +114,35 @@ test('une route protégée sans jeton renvoie le format commun', async () => {
 
     assertError(response, 401, 'AUTH_002');
     assert.equal(response.payload.message, 'Token manquant.');
+});
+
+test('seul le superadmin peut consulter la liste et le détail des comptes', async t => {
+    const secret = 'cle-jwt-pour-les-tests-http';
+    setJwtSecret(t, secret);
+    const account = { id: 3, name: 'Martin', firstname: 'Camille' };
+    const find = t.mock.fn(async () => [account]);
+    const findOne = t.mock.fn(async () => account);
+    t.mock.method(db, 'getRepository', () => ({ find, findOne }));
+
+    const app = express();
+    app.use(createUserRouter({
+        authMiddleware: makeAuthMiddleware({ hasActiveSession: async () => true }),
+        loadUserPermissions: makeLoadUserPermissions({
+            findPermissionsByUserId: async id => id === 1 ? USER_PERMISSIONS.SUPERUSER : DEFAULT_USER_PERMISSIONS
+        })
+    }));
+    app.use(errorMiddleware);
+
+    const bearer = id => ({ Authorization: `Bearer ${jwt.sign({ sub: id, sid: 'session-de-test' }, secret)}` });
+    for (const path of ['/', '/3']) {
+        assertError(await request(app, 'GET', path), 401, 'AUTH_002');
+        assertError(await request(app, 'GET', path, { headers: bearer(2) }), 403, 'AUTH_006');
+    }
+    assert.equal(find.mock.callCount() + findOne.mock.callCount(), 0);
+
+    const headers = bearer(1);
+    assert.deepEqual(await request(app, 'GET', '/', { headers }), { status: 200, payload: [account] });
+    assert.deepEqual(await request(app, 'GET', '/3', { headers }), { status: 200, payload: account });
 });
 
 test('le profil d’un compte introuvable utilise le code USER_001', async t => {

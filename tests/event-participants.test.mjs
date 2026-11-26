@@ -5,7 +5,7 @@ import { makeGetEventParticipantsUseCase } from '../src/reservation/app/usecases
 
 const defaultUser = { id: 1, permissions: DEFAULT_USER_PERMISSIONS };
 const otherUser = { ...defaultUser, id: 2 };
-const participants = [{ userId: 3, name: 'Martin', firstname: 'Camille' }];
+const participants = [{ name: 'Martin', firstname: 'Camille' }];
 
 function setup(t, creatorId = defaultUser.id, registrations = participants) {
     const listEventParticipants = t.mock.fn(async () => registrations);

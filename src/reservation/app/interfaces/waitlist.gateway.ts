@@ -1,7 +1,8 @@
+import type { RegistrationClosureReason } from '../../../profile/evenement/domain/evenement-registration';
 import type { WaitlistEntry, WaitlistParticipant } from '../../domain/waitlist-entry';
 import type { ReservationParticipantInput } from '../inputs/reservation-participant.input';
 
-type ClosedEventResult = { status: 'evenement-cancelled' } | { status: 'evenement-past' };
+type ClosedEventResult = { status: RegistrationClosureReason };
 type MissingEventResult = { status: 'evenement-not-found' };
 type ForbiddenResult = { status: 'forbidden' };
 

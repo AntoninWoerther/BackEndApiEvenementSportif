@@ -1,3 +1,4 @@
+import type { RegistrationClosureReason } from '../../../profile/evenement/domain/evenement-registration';
 import type { EventParticipant } from '../../domain/event-participant';
 import type { WaitlistPromotedEvent } from '../../domain/events/waitlist-promoted.event';
 import type { Reservation, ReservationWithEvenement } from '../../domain/reservation';
@@ -8,8 +9,7 @@ export type CreateReservationResult =
     | { status: 'evenement-not-found' }
     | { status: 'already-registered' }
     | { status: 'evenement-full' }
-    | { status: 'evenement-past' }
-    | { status: 'evenement-cancelled' }
+    | { status: RegistrationClosureReason }
     | { status: 'user-not-found' };
 
 export type CancelReservationResult =

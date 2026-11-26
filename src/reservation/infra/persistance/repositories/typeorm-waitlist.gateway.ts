@@ -1,7 +1,7 @@
 import { LessThan, QueryFailedError } from 'typeorm';
 import type { EntityManager } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
-import { formatParisDay } from '../../../../core/date/paris-day';
+import { getRegistrationClosureReason, getRemainingPlaces } from '../../../../profile/evenement/domain/evenement-registration';
 import { EvenementEntity } from '../../../../profile/evenement/infra/persistance/entities/evenement.entity';
 import type { JoinWaitlistResult, MoveWaitlistEntryUpResult, WaitlistGateway } from '../../../app/interfaces/waitlist.gateway';
 import type { WaitlistParticipant } from '../../../domain/waitlist-entry';
@@ -14,11 +14,6 @@ const findLockedEvent = (manager: EntityManager, id: number) => manager.getRepos
     lock: { mode: 'pessimistic_write' }
 });
 
-const closedStatus = ({ cancelledAt, date }: EvenementEntity) => {
-    if (cancelledAt) return 'evenement-cancelled';
-    if (date < formatParisDay(new Date())) return 'evenement-past';
-};
-
 export const typeormWaitlistGateway: WaitlistGateway = {
     async join({ evenementId, userId }) {
         try {
@@ -26,14 +21,15 @@ export const typeormWaitlistGateway: WaitlistGateway = {
                 const event = await findLockedEvent(manager, evenementId);
                 if (!event) return { status: 'evenement-not-found' };
 
-                const closed = closedStatus(event);
+                const closed = getRegistrationClosureReason(event, new Date());
                 if (closed) return { status: closed };
 
                 const reservations = manager.getRepository(ReservationEntity);
                 const entries = manager.getRepository(WaitlistEntryEntity);
                 if (await reservations.existsBy({ evenementId, userId })) return { status: 'already-registered' };
                 if (await entries.existsBy({ evenementId, userId })) return { status: 'already-queued' };
-                if (await reservations.countBy({ evenementId }) < event.capacity) return { status: 'place-available' };
+                const occupiedPlaces = await reservations.countBy({ evenementId });
+                if (getRemainingPlaces(event.capacity, occupiedPlaces) > 0) return { status: 'place-available' };
 
                 const last = await entries.findOne({ where: { evenementId }, order: { sortOrder: 'DESC' } });
                 const entry = await entries.save(entries.create({ evenementId, userId, sortOrder: (last?.sortOrder ?? 0) + 1 }));
@@ -81,7 +77,7 @@ export const typeormWaitlistGateway: WaitlistGateway = {
             if (!event) return { status: 'evenement-not-found' };
             if (event.creatorId !== actorId && !canManageOthers) return { status: 'forbidden' };
 
-            const closed = closedStatus(event);
+            const closed = getRegistrationClosureReason(event, new Date());
             if (closed) return { status: closed };
 
             const entries = manager.getRepository(WaitlistEntryEntity);

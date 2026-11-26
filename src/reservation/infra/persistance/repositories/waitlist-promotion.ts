@@ -1,6 +1,6 @@
 import { In } from 'typeorm';
 import type { EntityManager } from 'typeorm';
-import { formatParisDay } from '../../../../core/date/paris-day';
+import { getRegistrationClosureReason, getRemainingPlaces } from '../../../../profile/evenement/domain/evenement-registration';
 import type { Evenement } from '../../../../profile/evenement/domain/evenement';
 import type { WaitlistPromotedEvent } from '../../../domain/events/waitlist-promoted.event';
 import { ReservationEntity } from '../entities/reservation.entity';
@@ -14,14 +14,15 @@ export const promoteWaitlistForLockedEvent = async (
     event: WaitlistEvent,
     occupiedPlaces?: number
 ): Promise<WaitlistPromotedEvent | null> => {
-    if (event.cancelledAt || event.date < formatParisDay(new Date())) {
+    if (getRegistrationClosureReason(event, new Date())) {
         return null;
     }
 
     const evenementId = event.id;
     const reservations = manager.getRepository(ReservationEntity);
-    const availablePlaces = event.capacity - (occupiedPlaces ?? await reservations.countBy({ evenementId }));
-    if (availablePlaces <= 0) {
+    const bookedPlaces = occupiedPlaces ?? await reservations.countBy({ evenementId });
+    const availablePlaces = getRemainingPlaces(event.capacity, bookedPlaces);
+    if (availablePlaces === 0) {
         return null;
     }
 

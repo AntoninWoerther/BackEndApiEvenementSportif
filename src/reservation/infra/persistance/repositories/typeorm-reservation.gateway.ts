@@ -1,7 +1,7 @@
 import { QueryFailedError } from 'typeorm';
 import type { Repository } from 'typeorm';
 import { db } from '../../../../core/dataBase.config';
-import { formatParisDay } from '../../../../core/date/paris-day';
+import { getRegistrationClosureReason, getRemainingPlaces } from '../../../../profile/evenement/domain/evenement-registration';
 import { EvenementEntity } from '../../../../profile/evenement/infra/persistance/entities/evenement.entity';
 import type { CancelReservationResult, CreateReservationResult, ReservationGateway } from '../../../app/interfaces/reservation.gateway';
 import type { EventParticipant } from '../../../domain/event-participant';
@@ -59,11 +59,9 @@ export const typeormReservationGateway: ReservationGateway = {
                     return { status: 'evenement-not-found' };
                 }
 
-                if (evenement.cancelledAt) {
-                    return { status: 'evenement-cancelled' };
-                }
-                if (evenement.date < formatParisDay(new Date())) {
-                    return { status: 'evenement-past' };
+                const closure = getRegistrationClosureReason(evenement, new Date());
+                if (closure) {
+                    return { status: closure };
                 }
 
                 const reservations = manager.getRepository(ReservationEntity);
@@ -71,7 +69,8 @@ export const typeormReservationGateway: ReservationGateway = {
                     return { status: 'already-registered' };
                 }
 
-                if (await reservations.countBy({ evenementId }) >= evenement.capacity) {
+                const occupiedPlaces = await reservations.countBy({ evenementId });
+                if (getRemainingPlaces(evenement.capacity, occupiedPlaces) === 0) {
                     return { status: 'evenement-full' };
                 }
 

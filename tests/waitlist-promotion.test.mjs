@@ -160,6 +160,17 @@ test('un retrait par modération libère aussi une place, sauf pour un événeme
     assert.equal(log.mock.callCount(), 1);
 });
 
+test('un désistement sur un événement annulé conserve la file sans envoyer de mail', async t => {
+    const { event, bookings, queue, log, bus } = setup(t);
+    event.cancelledAt = new Date();
+    const cancel = makeCancelReservationUseCase(typeormReservationGateway, bus);
+    await cancel({ evenementId: 10, userId: 20 });
+
+    assert.deepEqual(bookings, []);
+    assert.equal(queue.length, 4);
+    assert.equal(log.mock.callCount(), 0);
+});
+
 test('la suppression d’un compte attribue la place libérée par la suppression en cascade', async t => {
     const { bookings, log, bus } = setup(t);
     const deleteUser = makeDeleteUserUseCase(typeormUserGateway, bus);

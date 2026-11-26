@@ -6,6 +6,7 @@ import { promoteWaitlistForLockedEvent } from '../../../../../reservation/infra/
 import { findReservationParticipantEmails } from '../../../../../reservation/infra/persistance/repositories/typeorm-reservation.gateway';
 import type { CancelEvenementResult, EvenementGateway, UpdateEvenementDetailsResult, UpdateEvenementScope } from '../../../app/interfaces/evenement.gateway';
 import type { EvenementWithAvailability } from '../../../domain/evenement';
+import { getRemainingPlaces } from '../../../domain/evenement-registration';
 import { EvenementEntity } from '../entities/evenement.entity';
 
 const buildEvenementAvailabilityQuery = () => {
@@ -34,7 +35,7 @@ const readEvenementsWithAvailability = async (
     // The subquery counts reservations without adding rows to the event result.
     return entities.map((evenement, index) => ({
         ...evenement,
-        remainingPlaces: evenement.cancelledAt ? 0 : Math.max(0, evenement.capacity - Number(raw[index].reservationCount))
+        remainingPlaces: evenement.cancelledAt ? 0 : getRemainingPlaces(evenement.capacity, Number(raw[index].reservationCount))
     }));
 };
 
